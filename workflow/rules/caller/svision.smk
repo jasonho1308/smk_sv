@@ -64,7 +64,7 @@ rule format_svision:
     conda:
         "../../envs/bcftools.yaml"
     input:
-        vcfs_svision,
+        [str(vcf) for vcf in vcfs_svision],
     output:
         tab=temp("svision/{sample}/rename.tab"),
         vcf=protected("svision/{sample}/svision.vcf"),
