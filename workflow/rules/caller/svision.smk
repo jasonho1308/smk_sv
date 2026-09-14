@@ -4,6 +4,9 @@ checkpoint svision:
     input:
         bam=f"{MAPPER}/{{sample}}/{{sample}}.sorted.bam",
         fasta=config["fasta"],
+        model_data=svision_model_files[0],
+        model_index=svision_model_files[1],
+        model_meta=svision_model_files[2],
     output:
         touch(vcfs_svision),
         graphs=directory("svision/{sample}/chroms/graphs"),
@@ -14,7 +17,7 @@ checkpoint svision:
     params:
         dir="svision/{sample}/chroms",
         chroms=CHROMS,
-        model=config["model_svision"],
+        model=lambda wildcards, input: str(input.model_index)[: -len(".index")],
         min_reads=config["min_reads"],
         min_quality_mapping=config["min_quality_mapping"],
         min_size=config["min_size"],

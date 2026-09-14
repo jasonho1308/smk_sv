@@ -112,7 +112,52 @@
     "bed_nanosv": { "type": "string" },
     "model_clair3": { "type": "string" },
     "bed_nvtr": { "type": "string" },
-    "model_svision": { "type": "string" }
+    "model_svision": { "type": "string" },
+    "resource_downloads": {
+      "type": "object",
+      "description": "Optional overrides for pinned resource downloads.",
+      "properties": {
+        "reference": { "$ref": "#/$defs/resourceDownloadByAssembly" },
+        "tandem_repeats": { "$ref": "#/$defs/resourceDownloadByAssembly" },
+        "nvtr": { "$ref": "#/$defs/resourceDownloadByAssembly" },
+        "clair3_model": { "$ref": "#/$defs/resourceDownload" },
+        "svision_model": { "$ref": "#/$defs/resourceDownload" },
+        "nanosv_config": { "$ref": "#/$defs/resourceDownload" },
+        "nanosv_bed": { "$ref": "#/$defs/resourceDownloadByAssembly" },
+        "annotsv_human": { "$ref": "#/$defs/resourceDownload" },
+        "annotsv_exomiser": { "$ref": "#/$defs/resourceDownload" }
+      },
+      "additionalProperties": false,
+      "default": {}
+    }
+  },
+  "$defs": {
+    "resourceDownload": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "checksum": {
+          "type": "string",
+          "pattern": "^(md5|sha256):[0-9a-fA-F]+$"
+        },
+        "compression": { "type": "string", "enum": ["none", "gzip"] },
+        "postprocess": { "type": "string", "enum": ["none", "ucsc_canonical"] },
+        "archive_root": { "type": "string" },
+        "version": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "resourceDownloadByAssembly": {
+      "type": "object",
+      "properties": {
+        "assemblies": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/resourceDownload" }
+        }
+      },
+      "required": ["assemblies"],
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }

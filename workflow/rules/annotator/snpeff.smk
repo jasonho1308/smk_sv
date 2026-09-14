@@ -4,12 +4,12 @@ rule snpeff:
     input:
         vcf="{caller}/{sample}/{caller}.{type_sv}.vcf",
         fasta=config["fasta"],
-        dir_cache=path_cache_snpeff,
+        cache=path_cache_snpeff,
     output:
         vcf=protected("{caller}/{sample}/{caller}.{type_sv}.snpeff.vcf"),
         html="{caller}/{sample}/{caller}.{type_sv}.snpeff.html",
     params:
-        cache=config["cache_snpeff"],
+        cache=lambda wildcards, input: str(Path(input.cache).parent),
         version=config["version_snpeff"],
         genome=config["genome"],
     resources:

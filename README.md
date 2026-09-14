@@ -334,6 +334,31 @@ The sample table must include one mandatory column:
 | --------------------------------- |
 | Unique identifier for each sample |
 
+## Reference resources
+
+The workflow can download the reference data required by the selected callers and
+annotators. URLs and checksums are defined under `resource_downloads` in
+`config/config.yaml`, including assembly-specific entries for GRCh37 and GRCh38.
+
+Review the configured output paths and available disk space (the two AnnotSV
+archives alone are about 11.5 GB before extraction), then prepare all required
+resources with:
+
+```shell
+snakemake resources --cores 4
+```
+
+This target prepares the reference FASTA and its indexes, tandem-repeat tracks,
+selected caller models, and the AnnotSV, VEP, and SnpEff annotation data. Downloads
+are resumable and verified when an upstream checksum is available. Model selection
+still matters: override `clair3_model` when the default R9.4.1/Guppy5 model does not
+match the sequencing chemistry and basecaller.
+
+Individual resources can also be supplied manually at the paths in
+`config/config.yaml`; existing files are not downloaded again. The normal analysis
+DAG depends on the same resource outputs, so a missing resource is prepared
+automatically.
+
 ## Execution
 
 ### Local Execution

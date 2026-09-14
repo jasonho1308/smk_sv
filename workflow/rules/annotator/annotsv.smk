@@ -10,7 +10,7 @@ rule annotsv:
         tsv=touch(protected("{caller}/{sample}/{caller}.{type_sv}.annotsv.tsv")),
     params:
         genome=config["genome"],
-        dir_cache=config["cache_annotsv"],
+        dir_cache=lambda wildcards, input: str(Path(input.human).parent),
     log:
         "logs/{sample}/annotsv.{caller}.{type_sv}.log",
     shell:

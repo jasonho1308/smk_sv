@@ -4,12 +4,12 @@ rule vep:
     input:
         vcf="{caller}/{sample}/{caller}.{type_sv}.vcf",
         fasta=config["fasta"],
-        dir_cache=path_cache_vep,
+        cache=path_cache_vep,
     output:
         vcf=protected("{caller}/{sample}/{caller}.{type_sv}.vep.vcf"),
         html="{caller}/{sample}/{caller}.{type_sv}.vep.html",
     params:
-        cache=config["cache_vep"],
+        cache=lambda wildcards, input: str(Path(input.cache).parents[1]),
         version=config["version_vep"],
         genome=config["genome"],
         species=config["species"],

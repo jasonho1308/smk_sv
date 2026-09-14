@@ -5,7 +5,7 @@ rule clair3:
         bam=f"{MAPPER}/{{sample}}/{{sample}}.sorted.bam",
         fasta=config["fasta"],
         fai=f"{config['fasta']}.fai",
-        model_clair3=config["model_clair3"],
+        model=config["model_clair3"],
     output:
         vcf=protected("clair3/{sample}/phased_merge_output.vcf.gz"),
         bam=protected("clair3/{sample}/phased_output.bam"),
@@ -27,7 +27,7 @@ rule clair3:
             --ref_fn={input.fasta} \\
             --threads={threads} \\
             --platform=ont \\
-            --model_path={input.model_clair3} \\
+            --model_path={input.model} \\
             --output={params.dir}
 
         ln -r -s {output.bam} {output.bam_renamed}

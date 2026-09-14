@@ -48,6 +48,11 @@ path_cache_snpeff = (
     f"{config['cache_snpeff']}/{config['genome']}.{config['version_snpeff']}"
 )
 path_cache_vep = f"{config['cache_vep']}/{config['species']}/{config['version_vep']}_{config['genome']}"
+svision_model_files = [
+    f"{config['model_svision']}.data-00000-of-00001",
+    f"{config['model_svision']}.index",
+    f"{config['model_svision']}.meta",
+]
 
 vcfs_svision = multiext(
     "svision/{sample}/chroms/{sample}",

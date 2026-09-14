@@ -68,3 +68,47 @@ bed_nanosv: /opt/nanosv/nanosv/bedfiles/hg19_genome_sample.bed
 model_clair3: /doc/clair3/models/r941_prom_sup_g5014
 bed_nvtr: /doc/sniffles/human_hs37d5.trf.chr.bed
 model_svision: /doc/svision/svision-cnn-model.ckpt
+
+# Pinned sources used by `snakemake resources`.
+resource_downloads:
+  reference:
+    assemblies:
+      GRCh37:
+        url: https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/GRCh37.p13.genome.fa.gz
+        checksum: md5:490904ef2561472d0801c704ffc85761
+        compression: gzip
+      GRCh38:
+        url: https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/GRCh38.primary_assembly.genome.fa.gz
+        checksum: md5:42e38e8dd5027dd2ae8aeb8f3a990d07
+        compression: gzip
+  tandem_repeats:
+    assemblies:
+      GRCh37:
+        url: https://raw.githubusercontent.com/fritzsedlazeck/Sniffles/684c7cb2f2f1d0a6dfe794617c661b1b7018c8c3/annotations/human_hs37d5.trf.bed
+        checksum: sha256:8115a0328b2c1a34b2a764e1141f34794c20add47c4005ae1be43fe3e6f13a07
+        postprocess: ucsc_canonical
+      GRCh38:
+        url: https://raw.githubusercontent.com/fritzsedlazeck/Sniffles/684c7cb2f2f1d0a6dfe794617c661b1b7018c8c3/annotations/human_GRCh38_no_alt_analysis_set.trf.bed
+        checksum: sha256:729cbb38bff84534070033db1ae004b6368f6856eef12dd7ce93e8ee55f37407
+  clair3_model:
+    url: https://www.bio8.cs.hku.hk/clair3/clair3_models/r941_prom_sup_g5014.tar.gz
+    checksum: sha256:9d78abb9b0311cf634d15afc61c2b41f749b74cb9c4905e3544896ae70b9f70d
+    archive_root: r941_prom_sup_g5014
+  svision_model:
+    url: https://drive.google.com/drive/folders/1j74IN6kPKEx9hy3aENx3zHYPUnyYWGvj
+  nanosv_config:
+    url: https://raw.githubusercontent.com/mroosmalen/nanosv/c1ae30cff5f1d978e198094db36c4be046d23846/nanosv/config.ini
+    checksum: sha256:912b88436d7a4f60be1fe89409f4a884fa208aa7afe24b3dfa4a1acf3b92b8e8
+  nanosv_bed:
+    assemblies:
+      GRCh37:
+        url: https://raw.githubusercontent.com/mroosmalen/nanosv/c1ae30cff5f1d978e198094db36c4be046d23846/nanosv/bedfiles/human_hg19.bed
+        checksum: sha256:5f315fa494cd00b8c06a1606baad6dd4292a656bc7d0057f052084460317a082
+        postprocess: ucsc_canonical
+  annotsv_human:
+    url: https://www.lbgi.fr/~geoffroy/Annotations/Annotations_Human_3.5.tar.gz
+    archive_root: Annotations_Human
+  annotsv_exomiser:
+    url: https://data.monarchinitiative.org/exomiser/data/2406_phenotype.zip
+    checksum: md5:cfa476704db9a67c0f94d99eb67d0fd2
+    version: "2406"
