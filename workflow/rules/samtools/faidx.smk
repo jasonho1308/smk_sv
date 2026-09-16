@@ -1,4 +1,7 @@
 rule faidx:
+    conda:
+        "../../envs/samtools.yaml"
+    
     input:
         fasta=config["fasta"],
     output:
