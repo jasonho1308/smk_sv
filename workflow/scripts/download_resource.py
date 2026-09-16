@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Download one configured resource atomically, with optional verification."""
 
-from __future__ import annotations
-
 import gzip
 import hashlib
 import os

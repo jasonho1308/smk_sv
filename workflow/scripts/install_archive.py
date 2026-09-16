@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Download and atomically install a tar or zip resource directory."""
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 import hashlib
