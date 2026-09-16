@@ -192,76 +192,88 @@ cp workflow/profiles/default/.config.yaml workflow/profiles/default/config.yaml
 <summary>Edit <code>config/config.yaml</code></summary>
 
 ```yaml
-dir_run: /projects/SV/analysis/wgs
-mapper: minimap2
-callers:
+run:
+  dir: /projects/SV/analysis/wgs
+workflow:
+  mapper: minimap2
+  callers:
   - cutesv
   - severus
   - sniffles
   - svim
   - svision
-annotators:
+  annotators:
   - vep
   - snpeff
   - annotsv
-fasta: /doc/reference/fasta/GRCh38.primary_assembly.genome.fa
-index_minimap2: /doc/reference/minimap2/GRCh38.primary_assembly.genome.mmi
-dir_data: /projects/SV/data/wgs
-suffix_fastq: .fq.gz
-bed_tandem_repeats: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
-min_reads: 3
-min_length_reads: 1000
-min_quality_mapping: 20
-min_coverage: 6
-min_size: 100
-max_size: 10000000
-min_dhffc: 0.7
-max_dhbfc: 1.3
-distance_sv:
-  BND: 10
-  DEL: 10
-  INS: 10
-  INV: 10
-  DUP: 10
-n_callers:
-  BND: 3
-  DEL: 3
-  INS: 3
-  INV: 3
-  DUP: 3
-consider_type:
-  BND: false
-  DEL: false
-  INS: false
-  INV: false
-  DUP: false
-consider_strand:
-  BND: false
-  DEL: false
-  INS: false
-  INV: false
-  DUP: false
-estimate_distance:
-  BND: true
-  DEL: true
-  INS: true
-  INV: true
-  DUP: true
-terms_relative: leuka?emia|blood|lymph|myelo|ha?ema|marrow|platel|thrombo|anemia|neutro
-species: homo_sapiens
-genome: GRCh38
-version_snpeff: "87"
-version_vep: 114
-version_annotsv: v3.5
-cache_snpeff: /doc/snpeff
-cache_vep: /.vep
-cache_annotsv: /doc/tool/annotator/annotsv
-max_size_vep: 10000000
-config_nanosv: /doc/nanosv/config.ini
-bed_nanosv: /doc/nanosv/bedfiles/hg38_genome_sample.bed
-model_clair3: /doc/clair3/models/r941_prom_sup_g5014
-bed_nvtr: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
-model_svision: /doc/svision/svision-cnn-model.ckpt
+inputs:
+  fasta: /doc/reference/fasta/GRCh38.primary_assembly.genome.fa
+  index_minimap2: /doc/reference/minimap2/GRCh38.primary_assembly.genome.mmi
+  dir_data: /projects/SV/data/wgs
+  suffix_fastq: .fq.gz
+filtering:
+  min_reads: 3
+  min_length_reads: 1000
+  min_quality_mapping: 20
+  min_coverage: 6
+  min_size: 100
+  max_size: 10000000
+  min_dhffc: 0.7
+  max_dhbfc: 1.3
+  distance_sv:
+    BND: 10
+    DEL: 10
+    INS: 10
+    INV: 10
+    DUP: 10
+  n_callers:
+    BND: 3
+    DEL: 3
+    INS: 3
+    INV: 3
+    DUP: 3
+  consider_type:
+    BND: false
+    DEL: false
+    INS: false
+    INV: false
+    DUP: false
+  consider_strand:
+    BND: false
+    DEL: false
+    INS: false
+    INV: false
+    DUP: false
+  estimate_distance:
+    BND: true
+    DEL: true
+    INS: true
+    INV: true
+    DUP: true
+annotation:
+  terms_relative: leuka?emia|blood|lymph|myelo|ha?ema|marrow|platel|thrombo|anemia|neutro
+  species: homo_sapiens
+  genome: GRCh38
+  snpeff:
+    version: '87'
+    cache: /doc/snpeff
+  vep:
+    version: 114
+    cache: /.vep
+    max_size: 10000000
+  annotsv:
+    version: v3.5
+    cache: /doc/tool/annotator/annotsv
+caller_settings:
+  tandem_repeats: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
+  nvtr: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
+  nanosv:
+    config: /doc/nanosv/config.ini
+    bed: /doc/nanosv/bedfiles/hg38_genome_sample.bed
+  clair3:
+    model: /doc/clair3/models/r941_prom_sup_g5014
+  svision:
+    model: /doc/svision/svision-cnn-model.ckpt
 ```
 
 </details>
@@ -337,7 +349,7 @@ The sample table must include one mandatory column:
 ## Reference resources
 
 The workflow can download the reference data required by the selected callers and
-annotators. URLs and checksums are defined under `resource_downloads` in
+annotators. URLs and checksums are defined under `resources.downloads` in
 `config/config.yaml`. The bundled resource URLs and example paths target GRCh38.
 
 Review the configured output paths and available disk space (the two AnnotSV
@@ -352,8 +364,7 @@ This target prepares the reference FASTA and its indexes, tandem-repeat tracks,
 selected caller models, and the AnnotSV, VEP, and SnpEff annotation data. Downloads
 are resumable and verified when an upstream checksum is available. Model selection
 still matters: override `clair3_model` when the default R9.4.1/Guppy5 model does not
-match the sequencing chemistry and basecaller. NanoSV does not publish an official
-GRCh38 sampling BED, so provide a GRCh38-compatible `bed_nanosv` if enabling that
+GRCh38 sampling BED, so provide a GRCh38-compatible `caller_settings.nanosv.bed` if enabling that
 caller.
 
 Individual resources can also be supplied manually at the paths in
