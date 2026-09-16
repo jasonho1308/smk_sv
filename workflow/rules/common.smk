@@ -14,6 +14,34 @@ configfile: "config/config.yaml"
 validate(config, "../schemas/config.schema.json")
 
 
+# Keep the rule interface compact while exposing a grouped user configuration.
+config = {
+    "dir_run": config["run"]["dir"],
+    "mapper": config["workflow"]["mapper"],
+    "callers": config["workflow"]["callers"],
+    "annotators": config["workflow"]["annotators"],
+    **config["inputs"],
+    **config["filtering"],
+    "terms_relative": config["annotation"]["terms_relative"],
+    "species": config["annotation"]["species"],
+    "genome": config["annotation"]["genome"],
+    "version_snpeff": config["annotation"]["snpeff"]["version"],
+    "cache_snpeff": config["annotation"]["snpeff"]["cache"],
+    "version_vep": config["annotation"]["vep"]["version"],
+    "cache_vep": config["annotation"]["vep"]["cache"],
+    "max_size_vep": config["annotation"]["vep"]["max_size"],
+    "version_annotsv": config["annotation"]["annotsv"]["version"],
+    "cache_annotsv": config["annotation"]["annotsv"]["cache"],
+    "bed_tandem_repeats": config["caller_settings"]["tandem_repeats"],
+    "bed_nvtr": config["caller_settings"]["nvtr"],
+    "config_nanosv": config["caller_settings"]["nanosv"]["config"],
+    "bed_nanosv": config["caller_settings"]["nanosv"]["bed"],
+    "model_clair3": config["caller_settings"]["clair3"]["model"],
+    "model_svision": config["caller_settings"]["svision"]["model"],
+    "resource_downloads": config["resources"]["downloads"],
+}
+
+
 pepfile: "config/pep/config.yaml"
 
 

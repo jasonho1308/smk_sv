@@ -204,11 +204,11 @@ annotators:
   - vep
   - snpeff
   - annotsv
-fasta: /doc/reference/fasta/GRCh37.primary_assembly.genome.fa
-index_minimap2: /doc/reference/minimap2/GRCh37.primary_assembly.genome.mmi
+fasta: /doc/reference/fasta/GRCh38.primary_assembly.genome.fa
+index_minimap2: /doc/reference/minimap2/GRCh38.primary_assembly.genome.mmi
 dir_data: /projects/SV/data/wgs
 suffix_fastq: .fq.gz
-bed_tandem_repeats: /doc/sniffles/human_hs37d5.trf.chr.bed
+bed_tandem_repeats: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
 min_reads: 3
 min_length_reads: 1000
 min_quality_mapping: 20
@@ -249,7 +249,7 @@ estimate_distance:
   DUP: true
 terms_relative: leuka?emia|blood|lymph|myelo|ha?ema|marrow|platel|thrombo|anemia|neutro
 species: homo_sapiens
-genome: GRCh37
+genome: GRCh38
 version_snpeff: "87"
 version_vep: 114
 version_annotsv: v3.5
@@ -258,9 +258,9 @@ cache_vep: /.vep
 cache_annotsv: /doc/tool/annotator/annotsv
 max_size_vep: 10000000
 config_nanosv: /doc/nanosv/config.ini
-bed_nanosv: /opt/nanosv/nanosv/bedfiles/hg19_genome_sample.bed
+bed_nanosv: /doc/nanosv/bedfiles/hg38_genome_sample.bed
 model_clair3: /doc/clair3/models/r941_prom_sup_g5014
-bed_nvtr: /doc/sniffles/human_hs37d5.trf.chr.bed
+bed_nvtr: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
 model_svision: /doc/svision/svision-cnn-model.ckpt
 ```
 
@@ -338,7 +338,7 @@ The sample table must include one mandatory column:
 
 The workflow can download the reference data required by the selected callers and
 annotators. URLs and checksums are defined under `resource_downloads` in
-`config/config.yaml`, including assembly-specific entries for GRCh37 and GRCh38.
+`config/config.yaml`. The bundled resource URLs and example paths target GRCh38.
 
 Review the configured output paths and available disk space (the two AnnotSV
 archives alone are about 11.5 GB before extraction), then prepare all required
@@ -352,7 +352,9 @@ This target prepares the reference FASTA and its indexes, tandem-repeat tracks,
 selected caller models, and the AnnotSV, VEP, and SnpEff annotation data. Downloads
 are resumable and verified when an upstream checksum is available. Model selection
 still matters: override `clair3_model` when the default R9.4.1/Guppy5 model does not
-match the sequencing chemistry and basecaller.
+match the sequencing chemistry and basecaller. NanoSV does not publish an official
+GRCh38 sampling BED, so provide a GRCh38-compatible `bed_nanosv` if enabling that
+caller.
 
 Individual resources can also be supplied manually at the paths in
 `config/config.yaml`; existing files are not downloaded again. The normal analysis
