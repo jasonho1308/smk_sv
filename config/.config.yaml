@@ -80,7 +80,6 @@ caller_settings:
   nvtr: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
   nanosv:
     config: /doc/nanosv/config.ini
-    # NanoSV does not publish an official GRCh38 sampling BED; provide one here if used.
     bed: /doc/nanosv/bedfiles/hg38_genome_sample.bed
   clair3:
     model: /doc/clair3/models/r941_prom_sup_g5014

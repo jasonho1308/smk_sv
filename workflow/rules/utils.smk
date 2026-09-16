@@ -40,6 +40,7 @@ def get_annotsv_cache_outputs():
 
 
 def get_resource_targets(wildcards=None):
+    "Define the targets for the resource.smk."
     targets = [config["fasta"], f"{config['fasta']}.fai", config["index_minimap2"]]
 
     if "sniffles" in CALLERS:
@@ -51,7 +52,9 @@ def get_resource_targets(wildcards=None):
     if "svision" in CALLERS:
         targets.extend(svision_model_files)
     if "nanosv" in CALLERS:
-        targets.extend([config["config_nanosv"], config["bed_nanosv"]])
+        targets.append(config["config_nanosv"])
+        if config["bed_nanosv"]:
+            targets.append(config["bed_nanosv"])
     if "snpeff" in ANNOTATORS:
         targets.append(path_cache_snpeff)
     if "vep" in ANNOTATORS:

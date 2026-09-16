@@ -6,15 +6,10 @@
             "type": "object",
             "properties": {
                 "dir": {
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": "string",
+                    "description": "Directory where the workflow will be executed (Optional)."
                 }
             },
-            "required": [
-                "dir"
-            ],
             "additionalProperties": false
         },
         "workflow": {
@@ -207,12 +202,12 @@
                             "type": "string"
                         },
                         "bed": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "NanoSV bed filtering. (Optional, only hg19 is available on github)"
                         }
                     },
                     "required": [
-                        "config",
-                        "bed"
+                        "config"
                     ],
                     "additionalProperties": false
                 },

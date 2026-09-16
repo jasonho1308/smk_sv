@@ -74,20 +74,21 @@ rule download_nanosv_config:
         "../scripts/download_resource.py"
 
 
-rule download_nanosv_bed:
-    conda:
-        "../envs/resources.yaml"
-    output:
-        protected(config["bed_nanosv"]),
-    params:
-        url=get_resource_config("nanosv_bed").get("url", ""),
-        checksum=get_resource_config("nanosv_bed").get("checksum", ""),
-        compression="none",
-        postprocess=get_resource_config("nanosv_bed").get("postprocess", "none"),
-    log:
-        "logs/resources/nanosv_bed.log",
-    script:
-        "../scripts/download_resource.py"
+if config["bed_nanosv"]:
+    rule download_nanosv_bed:
+        conda:
+            "../envs/resources.yaml"
+        output:
+            protected(config["bed_nanosv"]),
+        params:
+            url=get_resource_config("nanosv_bed").get("url", ""),
+            checksum=get_resource_config("nanosv_bed").get("checksum", ""),
+            compression="none",
+            postprocess=get_resource_config("nanosv_bed").get("postprocess", "none"),
+        log:
+            "logs/resources/nanosv_bed.log",
+        script:
+            "../scripts/download_resource.py"
 
 
 rule download_clair3_model:

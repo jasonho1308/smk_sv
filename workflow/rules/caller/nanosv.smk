@@ -3,11 +3,12 @@ rule nanosv:
         "../../envs/nanosv.yaml"
     input:
         bam=f"{MAPPER}/{{sample}}/{{sample}}.sorted.bam",
-        bed=config["bed_nanosv"],
         config=config["config_nanosv"],
     output:
         vcf=temp("nanosv/{sample}/tmp.vcf"),
     threads: 1
+    params:
+        bed=f"-b {config['bed_nanosv']}" if config["bed_nanosv"] else "",
     log:
         "logs/{sample}/nanosv.log",
     shell:
@@ -16,7 +17,7 @@ rule nanosv:
             -t {threads} \\
             -s samtools \\
             -c {input.config} \\
-            -b {input.bed} \\
+            {params.bed} \\
             -o {output.vcf} \\
             {input.bam} \\
             1> {log} 2>&1
