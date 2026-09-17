@@ -27,7 +27,26 @@ set-threads:
   minimap2_index: 10
   vep: 10
 set-resources:
-  snpeff:
-    mem_mb: 50000
+  minimap2_index:
+    mem_mb: 50000  # 50GB
+  minimap2:
+    mem_mb: 200000  # 200GB
+  clair3:
+    mem_mb: 200000  # 200GB
+  cutesv:
+    mem_mb: 100000  # 100GB
+  sniffles:
+    mem_mb: 100000  # 100GB
+  svim:
+    mem_mb: 100000  # 100GB
+  severus:
+    mem_mb: 100000  # 100GB
   svision:
+    mem_mb: 100000  # 100GB
     runtime: 72h
+  snpeff:
+    mem_mb: 50000  # 50GB
+  annotsv:
+    mem_mb: 50000  # 50GB
+  filter_annotations:
+    mem_mb: 50000  # 50GB

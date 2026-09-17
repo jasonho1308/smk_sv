@@ -1,4 +1,5 @@
 channels:
+  - conda-forge
   - bioconda
 dependencies:
   - nanosv=1.2.4
