@@ -1,4 +1,6 @@
 rule clair3:
+    conda:
+        "../../envs/clair3.yaml"
     container:
         "docker://hkubal/clair3:latest"
     input:
