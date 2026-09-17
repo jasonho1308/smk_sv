@@ -1,6 +1,16 @@
 .snakemake/
 config/pep/*.csv
-config/config.yaml
+config/*config*
 config/pep/config.yaml
+!config/.config.yaml
+.vscode/
 workflow/profiles/default/config.yaml
 dag.pdf
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+logs/
+pbs/
+*.out
+results/
+data/
