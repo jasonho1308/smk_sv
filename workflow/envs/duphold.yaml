@@ -3,5 +3,6 @@ channels:
   - bioconda
 dependencies:
   - bcftools=1.22
-  - duphold=0.2.3
+  - coreutils
+  - curl
   - python=3
