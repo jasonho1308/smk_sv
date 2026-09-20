@@ -1,0 +1,7 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bcftools=1.22
+  - duphold=0.2.3
+  - python=3

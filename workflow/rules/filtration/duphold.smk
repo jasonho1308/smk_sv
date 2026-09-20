@@ -1,6 +1,6 @@
 rule duphold:
     conda:
-        "../../envs/bcftools.yaml"
+        "../../envs/duphold.yaml"
     input:
         vcf="{caller}/{sample}/{caller}.vcf",
         bam=f"{MAPPER}/{{sample}}/{{sample}}.sorted.bam",
