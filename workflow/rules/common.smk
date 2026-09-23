@@ -82,7 +82,7 @@ svision_model_files = [
     f"{config['model_svision']}.meta",
 ]
 
-vcfs_svision = multiext(
-    "svision/{sample}/chroms/{sample}",
-    *[f".{chrom}.svision.s{config['min_reads']}.graph.vcf" for chrom in CHROMS],
-)
+vcfs_svision = [
+    f"svision/{{sample}}/chroms/{chrom}/{{sample}}.{chrom}.svision.s{config['min_reads']}.graph.vcf"
+    for chrom in CHROMS
+]

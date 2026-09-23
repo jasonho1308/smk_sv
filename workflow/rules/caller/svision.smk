@@ -1,4 +1,4 @@
-checkpoint svision:
+rule svision:
     container:
         "docker://jiadongxjtu/svision:latest"
     input:
@@ -8,15 +8,12 @@ checkpoint svision:
         model_index=svision_model_files[1],
         model_meta=svision_model_files[2],
     output:
-        touch(vcfs_svision),
-        graphs=directory("svision/{sample}/chroms/graphs"),
-        segments=temp(touch(directory("svision/{sample}/chroms/segments"))),
-        predict_results=temp(
-            touch(directory("svision/{sample}/chroms/predict_results"))
+        # SVision may omit the VCF when there are no calls; the formatter skips empty files.
+        vcf=touch(
+            f"svision/{{sample}}/chroms/{{chrom}}/{{sample}}.{{chrom}}.svision.s{config['min_reads']}.graph.vcf"
         ),
     params:
-        dir="svision/{sample}/chroms",
-        chroms=CHROMS,
+        dir="svision/{sample}/chroms/{chrom}",
         model=lambda wildcards, input: str(input.model_index)[: -len(".index")],
         min_reads=config["min_reads"],
         min_quality_mapping=config["min_quality_mapping"],
@@ -24,39 +21,27 @@ checkpoint svision:
         max_size=config["max_size"],
     threads: 1
     log:
-        "logs/{sample}/svision.log",
+        "logs/{sample}/svision/{chrom}.log",
+    wildcard_constraints:
+        chrom=r"|".join(CHROMS),
     shell:
         """
-        {{ for chrom in {params.chroms}; do
-            lock_file="{params.dir}/${{chrom}}.lock"
-            if [ -f ${{lock_file}} ]; then
-                echo -e "[INFO] SVision already run for chromosome ${{chrom}}, skipping..."
-                continue
-            fi
-
-            echo -e "[INFO] Running SVision on chromosome ${{chrom}}..."
-
-            SVision \\
-                -t {threads} \\
-                -s {params.min_reads} \\
-                --min_mapq {params.min_quality_mapping} \\
-                --min_sv_size {params.min_size} \\
-                --max_sv_size {params.max_size} \\
-                --qname \\
-                --graph \\
-                --min_gt_depth {params.min_reads} \\
-                -o {params.dir} \\
-                -b {input.bam} \\
-                -m {params.model} \\
-                -g {input.fasta} \\
-                -n {wildcards.sample}.${{chrom}} \\
-                -c ${{chrom}}
-
-            sleep 10
-            touch ${{lock_file}}
-            sleep 10
-        done; }} \\
-        1> {log} 2>&1
+        SVision \\
+            -t {threads} \\
+            -s {params.min_reads} \\
+            --min_mapq {params.min_quality_mapping} \\
+            --min_sv_size {params.min_size} \\
+            --max_sv_size {params.max_size} \\
+            --qname \\
+            --graph \\
+            --min_gt_depth {params.min_reads} \\
+            -o {params.dir} \\
+            -b {input.bam} \\
+            -m {params.model} \\
+            -g {input.fasta} \\
+            -n {wildcards.sample}.{wildcards.chrom} \\
+            -c {wildcards.chrom} \\
+            1> {log} 2>&1
         """
 
 
@@ -68,15 +53,25 @@ rule format_svision:
     output:
         tab=temp("svision/{sample}/rename.tab"),
         vcf=protected("svision/{sample}/svision.vcf"),
-    params:
-        get_format_svision_parameters,
     log:
         "logs/{sample}/format_svision.log",
     shell:
         """
-        {{ echo -e "{wildcards.sample}.{params[0][chrom_lead]}\\t{wildcards.sample}" > {output.tab}
+        {{ lead_vcf=""
+        for vcf in {input}; do
+            if [ -s "$vcf" ]; then
+                lead_vcf="$vcf"
+                break
+            fi
+        done
+        if [ -z "$lead_vcf" ]; then
+            echo "No non-empty SVision VCF found for {wildcards.sample}" >&2
+            exit 1
+        fi
+        lead_chrom=$(basename "$(dirname "$lead_vcf")")
+        printf '%s\\t%s\\n' "{wildcards.sample}.$lead_chrom" "{wildcards.sample}" > {output.tab}
 
-        {{ grep '^#' {params[0][vcf_lead]}; cat {input} | grep -v '^#'; }} \\
+        {{ grep '^#' "$lead_vcf"; awk '!/^#/' {input}; }} \\
             | awk '/^##INFO=<ID=GFA_L/ && !f {{print "##INFO=<ID=GFA_ID,Number=.,Type=String,Description=\\"GFA_ID\\">"; f=1}} 1' \\
             | awk 'BEGIN{{FS=OFS="\\t"}} /^#/ || $5 == "<CSV>" {{print; next}} {{split($8, a, ";"); for(i in a) {{if(a[i] ~ /^SVTYPE=/) {{split(a[i], b, "="); if(b[2] == "tDUP") b[2] = "DUP:TANDEM"; gsub("<SV>", "<"b[2]">", $5)}}}}}}1' \\
             | awk '/^##ALT/ && !f {{print "##ALT=<ID=INS,Description=\\"INS\\">\\n##ALT=<ID=INV,Description=\\"INV\\">\\n##ALT=<ID=DUP,Description=\\"DUP\\">\\n##ALT=<ID=DUP:TANDEM,Description=\\"DUP:TANDEM\\">\\n##ALT=<ID=DEL,Description=\\"DEL\\">"; f=1}} 1' \\

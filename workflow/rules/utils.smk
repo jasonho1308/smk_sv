@@ -1,6 +1,3 @@
-from pathlib import Path
-
-
 def get_resource_config(name):
     assembly = {"hg19": "GRCh37", "hg38": "GRCh38"}.get(
         config["genome"], config["genome"]
@@ -75,22 +72,3 @@ def get_convert_snpeff_arguments(wildcards):
     arg = " ".join(f"GEN[*].{field}" for field in fields)
 
     return arg
-
-
-def get_format_svision_parameters(wildcards):
-    sample = wildcards.sample
-
-    suffixes = [
-        f".{chrom}.svision.s{config['min_reads']}.graph.vcf" for chrom in CHROMS
-    ]
-    vcfs = [f"svision/{sample}/chroms/{sample}{suffix}" for suffix in suffixes]
-
-    for index, (chrom, vcf) in enumerate(zip(CHROMS, vcfs)):
-        with checkpoints.svision.get(sample=sample).output[index].open("r") as f:
-            if Path(vcf).exists() and Path(vcf).stat().st_size > 0:
-                return {
-                    "chrom_lead": chrom,
-                    "vcf_lead": vcf,
-                }
-
-    raise ValueError(f"No non-empty VCF found for sample {sample}.")
