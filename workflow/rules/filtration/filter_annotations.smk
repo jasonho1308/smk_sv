@@ -2,7 +2,7 @@ rule filter_annotations:
     conda:
         "../../envs/r.yaml"
     input:
-        annotsv="{caller}/{sample}/{caller}.{type_sv}.annotsv.tsv",
+        annotsv="{caller}/{sample}/{caller}.{type_sv}.annotsv.length.tsv",
         maf="{caller}/{sample}/merged/{caller}.{type_sv}.vep.maf",
         tsv="{caller}/{sample}/merged/{caller}.{type_sv}.snpeff.tsv",
         tab="survivor/{sample}/{sample}.{caller}.{type_sv}.tab",
