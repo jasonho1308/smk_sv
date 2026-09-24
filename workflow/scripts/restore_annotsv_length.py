@@ -1,4 +1,4 @@
-"""Fill missing AnnotSV insertion lengths from the VCF given to AnnotSV.
+"""Fill missing AnnotSV insertion lengths from their retained INFO/SVLEN.
 
 AnnotSV 3.5.10 can lose SVLEN when CIPOS expands the reported start.
 Do not replace SV_start/SV_end: they are the CI-adjusted annotation interval.
@@ -6,6 +6,13 @@ Do not replace SV_start/SV_end: they are the CI-adjusted annotation interval.
 
 import sys
 from pathlib import Path
+
+
+def svlen_from_info(info):
+    values = [item[6:] for item in info.split(";") if item.startswith("SVLEN=")]
+    if len(values) > 1 and len(set(values)) > 1:
+        raise ValueError(f"Conflicting SVLEN values in INFO: {info!r}")
+    return values[0] if values and values[0] not in ("", ".") else None
 
 
 def restore_lengths(annotsv_path, vcf_path, output_path):
@@ -18,12 +25,13 @@ def restore_lengths(annotsv_path, vcf_path, output_path):
             if len(fields) < 8:
                 raise ValueError(f"Malformed VCF record: {line[:80]!r}")
             variant_id = fields[2]
-            svlens = [item[6:] for item in fields[7].split(";") if item.startswith("SVLEN=")]
-            if not svlens or svlens[0] in ("", "."):
-                continue
-            if variant_id in lengths and lengths[variant_id] != svlens[0]:
-                raise ValueError(f"Ambiguous SVLEN for VCF ID {variant_id}")
-            lengths[variant_id] = svlens[0]
+            svlen = svlen_from_info(fields[7])
+            if variant_id not in lengths:
+                lengths[variant_id] = svlen
+            elif lengths[variant_id] != svlen:
+                # Duplicate VCF IDs cannot be used as a lookup key. Prefer
+                # the INFO column belonging to each AnnotSV row below.
+                lengths[variant_id] = None
 
     restored = 0
     with open(annotsv_path, encoding="utf-8", newline="") as source, open(
@@ -35,6 +43,7 @@ def restore_lengths(annotsv_path, vcf_path, output_path):
         if not all(column in columns for column in required):
             raise ValueError(f"AnnotSV header missing one of {required}")
         id_col, type_col, length_col = (columns.index(column) for column in required)
+        info_col = columns.index("INFO") if "INFO" in columns else None
         output.write(header)
         for line in source:
             if not line.strip() or line.startswith("#"):
@@ -46,9 +55,11 @@ def restore_lengths(annotsv_path, vcf_path, output_path):
                 raise ValueError(f"AnnotSV row has {len(fields)} fields; expected {len(columns)}")
             if fields[type_col] == "INS" and fields[length_col] in ("", "NA", "NaN"):
                 variant_id = fields[id_col]
-                svlen = lengths.get(variant_id)
+                svlen = svlen_from_info(fields[info_col]) if info_col is not None else None
                 if svlen is None:
-                    raise ValueError(f"No VCF SVLEN for AnnotSV INS ID {variant_id}")
+                    svlen = lengths.get(variant_id)
+                if svlen is None:
+                    raise ValueError(f"No unambiguous SVLEN for AnnotSV INS ID {variant_id}")
                 try:
                     if int(svlen) <= 0:
                         raise ValueError
@@ -59,7 +70,7 @@ def restore_lengths(annotsv_path, vcf_path, output_path):
                 output.write("\t".join(fields) + newline)
             else:
                 output.write(line)
-    print(f"Restored SV_length in {restored} AnnotSV INS rows from VCF SVLEN")
+    print(f"Restored SV_length in {restored} AnnotSV INS rows from INFO/SVLEN")
 
 
 if __name__ == "__main__":
