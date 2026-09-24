@@ -19,6 +19,8 @@ rule filter_annotations:
     params:
         callers=CALLERS,
         terms_relative=config["terms_relative"],
+    log:
+        "logs/{sample}/filter_annotations.{caller}.{type_sv}.log",
     threads: 1
     script:
         "../../scripts/filter_annotations.R"
