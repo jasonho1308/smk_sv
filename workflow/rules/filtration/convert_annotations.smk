@@ -11,6 +11,7 @@ rule convert_vep:
         genome=config["genome"],
         cache=config["cache_vep"],
         species=config["species"],
+        normalize_script=workflow.basedir + "/scripts/normalize_sv_chr2.sh",
     log:
         "logs/{sample}/convert_vep.{caller}.{type_sv}.log",
     shell:
@@ -37,6 +38,13 @@ rule convert_vep:
                 }}' ${{input}} > ${{input%.*}}.INS.vcf
             input=${{input%.*}}.INS.vcf
         fi
+
+        # vcf2maf uses INFO/CHR2 for the second breakpoint of DEL/DUP/INV.
+        # Sniffles may omit it for same-chromosome events.
+        normalized=${{input%.*}}.chr2.vcf
+        trap 'rm -f "$normalized"' EXIT
+        bash {params.normalize_script} "${{input}}" "${{normalized}}"
+        input=${{normalized}}
 
         vcf2maf.pl \\
             --input-vcf ${{input}} --output-maf {output.maf} \\
