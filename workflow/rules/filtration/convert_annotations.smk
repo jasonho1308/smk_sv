@@ -39,8 +39,8 @@ rule convert_vep:
             input=${{input%.*}}.INS.vcf
         fi
 
-        # vcf2maf uses INFO/CHR2 for the second breakpoint of DEL/DUP/INV.
-        # Sniffles may omit it for same-chromosome events.
+        # vcf2maf requires INFO/CHR2 and INFO/END for a second breakpoint.
+        # Same-chromosome SVs may omit CHR2; BNDs encode the mate in ALT.
         normalized=${{input%.*}}.chr2.vcf
         trap 'rm -f "$normalized"' EXIT
         bash {params.normalize_script} "${{input}}" "${{normalized}}"
