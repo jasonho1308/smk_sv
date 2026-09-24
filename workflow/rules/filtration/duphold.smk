@@ -13,7 +13,9 @@ rule duphold:
         "logs/{sample}/duphold.{caller}.log",
     shell:
         """
-        {{ bcftools sort -Ou {input.vcf} > {output.bcf}
+        {{ # Discard malformed POS=0 records before BCF conversion (duphold crashes on them).
+        awk -F '\t' '/^#/ {{print; next}} $2 !~ /^[0-9]+$/ || $2+0 < 1 {{invalid++; next}} {{print}} END {{if (invalid) print "Skipped " invalid " VCF records with invalid POS" > "/dev/stderr"}}' {input.vcf} \\
+            | bcftools sort -Ou - > {output.bcf}
 
         export DUPHOLD_SAMPLE_NAME={wildcards.sample}
         duphold \\
