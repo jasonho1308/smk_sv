@@ -16,6 +16,11 @@ def svlen_from_info(info):
 
 
 def restore_lengths(annotsv_path, vcf_path, output_path):
+    if Path(annotsv_path).stat().st_size == 0:
+        Path(output_path).write_bytes(b"")
+        print("AnnotSV input is empty; no insertion lengths to restore")
+        return
+
     lengths = {}
     with open(vcf_path, encoding="utf-8") as vcf:
         for line in vcf:
@@ -40,8 +45,12 @@ def restore_lengths(annotsv_path, vcf_path, output_path):
         header = source.readline()
         columns = header.rstrip("\r\n").split("\t")
         required = ("ID", "SV_type", "SV_length")
-        if not all(column in columns for column in required):
-            raise ValueError(f"AnnotSV header missing one of {required}")
+        missing = [column for column in required if column not in columns]
+        if missing:
+            raise ValueError(
+                f"AnnotSV input {annotsv_path}: missing header fields {missing}; "
+                f"first line: {header[:200]!r} (file size: {Path(annotsv_path).stat().st_size} bytes)"
+            )
         id_col, type_col, length_col = (columns.index(column) for column in required)
         info_col = columns.index("INFO") if "INFO" in columns else None
         output.write(header)
