@@ -1,6 +1,6 @@
 rule svision:
     container:
-        "docker://jiadongxjtu/svision:latest"
+        "docker://jiadongxjtu/svision@sha256:7e60772344ea1b59cc84247012686fe390118599eae902326f84284eb454b084"
     input:
         bam=f"{MAPPER}/{{sample}}/{{sample}}.sorted.bam",
         fasta=config["fasta"],

@@ -167,15 +167,15 @@ fi
 
 if ! command -v samtools &> /dev/null; then
     [ -d ${HOME}/.local/opt ] || mkdir -p ${HOME}/.local/opt
-    wget 'https://github.com/samtools/samtools/releases/download/1.22.1/samtools-1.22.1.tar.bz2'
-    tar -xvf samtools-1.22.1.tar.bz2
-    cd samtools-1.22.1
+    wget 'https://github.com/samtools/samtools/releases/download/1.25/samtools-1.25.tar.bz2'
+    tar -xvf samtools-1.25.tar.bz2
+    cd samtools-1.25
     ./configure --prefix=${HOME}/.local/opt/samtools
     make
     make install
     echo "export PATH=\${HOME}/.local/opt/samtools/bin:\${PATH}" >> ~/.bashrc
     source ~/.bashrc
-    rm -rf samtools-1.22.1 samtools-1.22.1.tar.bz2
+    rm -rf samtools-1.25 samtools-1.25.tar.bz2
 fi
 
 # Install Snakemake and eido using pipx (https://pipx.pypa.io/stable/)
@@ -202,7 +202,7 @@ cp workflow/profiles/default/.config.yaml workflow/profiles/default/config.yaml
 
 ```yaml
 run:
-  dir: /projects/SV/analysis/wgs
+  dir: /projects/SV/analysis/wgs_t2t
 workflow:
   mapper: minimap2
   callers:
@@ -216,11 +216,12 @@ workflow:
   - snpeff
   - annotsv
 inputs:
-  fasta: /doc/reference/fasta/GRCh38.primary_assembly.genome.fa
-  index_minimap2: /doc/reference/minimap2/GRCh38.primary_assembly.genome.mmi
+  fasta: /doc/reference/T2T-CHM13v2.0/chm13v2.0.fa
+  index_minimap2: /doc/reference/minimap2/T2T-CHM13v2.0/chm13v2.0.mmi
   dir_data: /projects/SV/data/wgs
   suffix_fastq: .fq.gz
 filtering:
+  missing_population_af: keep  # keep, exclude, or error; unknown is not AF=0
   min_reads: 3
   min_length_reads: 1000
   min_quality_mapping: 20
@@ -262,25 +263,31 @@ filtering:
 annotation:
   terms_relative: leuka?emia|blood|lymph|myelo|ha?ema|marrow|platel|thrombo|anemia|neutro
   species: homo_sapiens
-  genome: GRCh38
+  genome: CHM13
   snpeff:
-    version: '87'
+    version: 'v2.0'
     cache: /doc/snpeff
+    build:
+      genes: /doc/reference/T2T-CHM13v2.0/chm13v2.0_RefSeq_Liftoff_v5.3.gff
+      format: gff3
+      cds: null      # Optional matching CDS FASTA for build verification
+      protein: null  # Optional matching protein FASTA for build verification
   vep:
-    version: 114
-    cache: /.vep
+    version: 116
+    mode: gff
+    annotation: /doc/reference/T2T-CHM13v2.0/chm13v2.0_GENCODEv35_CAT_Liftoff.vep.gff3
     max_size: 10000000
   annotsv:
     version: v3.5
     cache: /doc/tool/annotator/annotsv
 caller_settings:
-  tandem_repeats: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
-  nvtr: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
+  tandem_repeats: /doc/reference/T2T-CHM13v2.0/chm13.bed
+  nvtr: /doc/reference/T2T-CHM13v2.0/chm13.bed
   nanosv:
     config: /doc/nanosv/config.ini
-    bed: /doc/nanosv/bedfiles/hg38_genome_sample.bed
+    bed: null  # Supply a CHM13 sampling BED if enabling NanoSV
   clair3:
-    model: /doc/clair3/models/r941_prom_sup_g5014
+    model: /doc/clair3/models/pytorch/r941_prom_sup_g5014
   svision:
     model: /doc/svision/svision-cnn-model.ckpt
 ```
@@ -359,7 +366,12 @@ The sample table must include one mandatory column:
 
 The workflow can download the reference data required by the selected callers and
 annotators. URLs and checksums are defined under `resources.downloads` in
-`config/config.yaml`. The bundled resource URLs and example paths target GRCh38.
+`config/config.yaml`. The bundled sources target **T2T-CHM13v2.0** (`CHM13`),
+using the `chr*` analysis set including HG002-derived chrY and matching Severus
+CHM13 repeat intervals. The tracked template is `config/.config.yaml`; local
+`config/config.yaml` is ignored by Git. Rebuild the minimap2 index and realign
+reads into a **new run directory** when migrating from GRCh38; do not reuse
+GRCh38 BAMs, VCFs, repeat tracks, or annotation caches.
 
 Review the configured output paths and available disk space (the two AnnotSV
 archives alone are about 11.5 GB before extraction), then prepare all required
@@ -370,16 +382,120 @@ snakemake resources --cores 4
 ```
 
 This target prepares the reference FASTA and its indexes, tandem-repeat tracks,
-selected caller models, and the AnnotSV, VEP, and SnpEff annotation data. Downloads
-are resumable and verified when an upstream checksum is available. Model selection
-still matters: override `clair3_model` when the default R9.4.1/Guppy5 model does not
-GRCh38 sampling BED, so provide a GRCh38-compatible `caller_settings.nanosv.bed` if enabling that
-caller.
+selected caller models, AnnotSV data, and a **locally built CHM13 SnpEff database**.
+The SnpEff build runs automatically when its cache is missing; see below.
+
+**VEP now uses local GFF/GTF transcript models and the matching FASTA, without
+an Ensembl cache or database connection.** The resource target downloads,
+validates, coordinate-sorts, bgzips and tabix-indexes its CHM13 gene annotations.
+AnnotSV accepts `genomeBuild=CHM13`; its `v3.5` annotation-data release is independent
+of the installed AnnotSV patch version.
+
+Downloads are resumable and checksummed where available. Clair3 now uses PyTorch
+models (`pileup.pt`, `full_alignment.pt`); the default retains R9.4.1/Guppy5
+chemistry, **not** a switch to R10.4.1. Override `caller_settings.clair3.model` and
+`resources.downloads.clair3_model` together if your sequencing chemistry differs.
+A new `pytorch/` model path avoids reusing old TensorFlow checkpoints.
+NanoSV also needs a CHM13-compatible `caller_settings.nanosv.bed` if enabled.
 
 Individual resources can also be supplied manually at the paths in
 `config/config.yaml`; existing files are not downloaded again. The normal analysis
 DAG depends on the same resource outputs, so a missing resource is prepared
 automatically.
+
+### Build the custom SnpEff database
+
+The workflow follows the official [SnpEff database-building guide](https://pcingola.github.io/SnpEff/snpeff/build_db/):
+register the genome, stage the reference and gene annotations, run `snpEff build`,
+and perform CDS/protein verification when matching sequence files are supplied.
+
+```shell
+# Build SnpEff only (does not require a VEP cache):
+snakemake build_snpeff_cache --cores 4
+
+# Override the default 32 GB memory request if needed:
+snakemake build_snpeff_cache --cores 4 --set-resources build_snpeff_cache:mem_mb=48000
+```
+
+The default downloads checksummed **CHM13 RefSeq/Liftoff v5.3 GFF3** (including
+curated Y annotations) from the official T2T analysis set and validates every
+feature's contig and coordinates against the configured FASTA index. This gene
+annotation covers chr1–chr22, chrX, and chrY; it does not provide chrM gene models.
+It installs
+`CHM13.v2.0/snpEffectPredictor.bin`, a private `snpEff.config`, and
+`build_manifest.json` under `annotation.snpeff.cache`. Annotation jobs automatically
+use that config; no installed SnpEff files are edited. Logs are written to
+`logs/resources/snpeff_build.log` under the run directory.
+
+**Verification caveat:** default `cds: null` and `protein: null` explicitly pass
+`-noCheckCds -noCheckProtein`, as described in the official guide. This produces
+a usable database but does **not** independently validate its predicted coding
+sequences. Supply matching CDS and/or protein FASTAs from the **same annotation
+release**, with transcript IDs as FASTA identifiers, to enable those checks.
+Do not substitute GRCh38 sequences or unrelated CAT/Liftoff proteins. Review the
+build log for warnings before interpreting results.
+
+For local annotations, set `annotation.snpeff.build.genes` to an existing file;
+otherwise `resources.downloads.snpeff_genes` supplies it. GTF is supported with
+`format: gtf22` (the guide recommends GTF when a suitable one is available); the
+default uses its documented GFF3 build option. Compressed `.gz` inputs are also
+supported. Existing cache directories are reused; to rebuild an older manually
+prepared cache, back it up first, then use `--forcerun build_snpeff_cache`.
+Omit the `annotation.snpeff.build` block to retain prebuilt-database download mode
+for assemblies such as GRCh38.
+
+Allow space for the reference, the expanded annotation (about 1.3 GB), and the
+resulting SnpEff database. Inputs are linked into the build, not copied. The JVM
+heap uses 90% of the requested memory to leave room for native JVM overhead.
+
+### Offline VEP and robust annotation filtering
+
+```shell
+# Download and prepare just the local VEP transcript annotation:
+snakemake prepare_vep_annotation --cores 4
+```
+
+The default is the official T2T **GENCODEv35 CAT/Liftoff VEP-formatted GFF3**;
+`resources.downloads.vep_genes` pins its URL and SHA-256 checksum. Existing local
+GFF/GTF files can be supplied through `annotation.vep.annotation`, with
+`mode: gff` or `mode: gtf`. Supply complete gene/transcript/exon models and valid
+parent IDs; exon-only GTFs can otherwise produce intergenic-only results in VEP.
+Preparation checks contigs and coordinates against
+the FASTA index, then creates `<annotation>.sorted.gz` and its `.tbi` index.
+Allow disk space for several expanded copies during sorting.
+
+VEP uses `--gff`/`--gtf` and `--fasta`, without `--database` or cache options.
+**Do not add VEP's literal `--offline` flag in this mode:** in VEP 116 it implies
+cache loading. Local transcript mode has been tested in a network-disabled Linux
+container. Legacy Ensembl-cache use remains available with `mode: cache`,
+`cache: <directory>`, and a matching assembly/cache release.
+
+SnpEff uses RefSeq/Liftoff v5.3, whereas the VEP-formatted source uses GENCODEv35
+CAT/Liftoff. Both match CHM13 coordinates but have different gene/transcript
+models; do not expect identical transcript IDs or consequences.
+
+**Population frequencies, known-variant IDs and cache-only predictions are not
+provided by transcript-only annotation.** Do not interpret missing AF as zero or
+as evidence that a variant is rare. Configure `filtering.missing_population_af`:
+
+- `keep` (default): retain unknown-frequency evidence and issue a warning.
+- `exclude`: remove variants with no measured population AF from the final
+  selection, even if another annotation branch would retain them.
+- `error`: stop when population AF is unknown, including selected IDs missing
+  from the VEP MAF entirely.
+
+The annotation table records `VEP.population_AF_status` (`observed` or `unknown`)
+and `VEP.population_AF_max`. Measured AF=0 is distinct from unknown. Available
+frequency values still feed the existing VEP frequency filter; the existing
+non-stringent evidence-merging/rescue behavior is otherwise preserved. Add
+appropriate **CHM13-coordinate** population data separately if frequency-based
+selection is required; these data are not supplied automatically here.
+
+AnnotSV TSVs are read by header, not a fixed column count. Missing optional
+annotations become NA with warnings; missing required IDs/coordinates or malformed
+tables stop the run. The R environment includes BCFtools. Filtering commands are
+checked, outputs are installed only after success, and empty selections yield
+valid header-only VCFs rather than silently retaining every record.
 
 ## Execution
 

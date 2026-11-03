@@ -1,5 +1,5 @@
 channels:
   - conda-forge
 dependencies:
-  - curl=8.14.1
-  - gdown=5.2.0
+  - curl=8.23.0
+  - gdown=6.5.1

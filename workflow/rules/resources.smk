@@ -144,68 +144,10 @@ rule download_svision_model:
         """
 
 
-rule download_snpeff_cache:
-    conda:
-        "../envs/awscli.yaml"
-    output:
-        cache=protected(directory(path_cache_snpeff)),
-    params:
-        source=f"{config['genome']}.{config['version_snpeff']}",
-        destination=lambda wildcards, output: str(Path(output.cache).parent),
-        cache=lambda wildcards, output: str(Path(output.cache).parent),
-    log:
-        "logs/resources/snpeff_cache.log",
-    shell:
-        r"""
-        set -euo pipefail
-        url_base="s3://annotation-cache/snpeff_cache"
-        mkdir -p {params.destination:q}
-        if aws s3 ls --no-sign-request "$url_base/" \
-            | awk '$1 == "PRE" {{sub(/\/$/, "", $2); print $2}}' \
-            | grep -Fxq {params.source:q}; then
-            aws s3 --no-sign-request sync \
-                "$url_base/{params.source}" {params.destination:q}
-        else
-            snpEff download {params.source:q} -dataDir {params.cache:q}
-        fi > {log:q} 2>&1
-        """
+include: "resources_snpeff.smk"
 
 
-rule download_vep_cache:
-    conda:
-        "../envs/awscli.yaml"
-    output:
-        cache=protected(directory(path_cache_vep)),
-    params:
-        source=f"{config['version_vep']}_{config['genome']}",
-        destination=lambda wildcards, output: str(Path(output.cache).parents[1]),
-        cache=lambda wildcards, output: str(Path(output.cache).parents[1]),
-        species=config["species"],
-        version=config["version_vep"],
-        genome=config["genome"],
-    log:
-        "logs/resources/vep_cache.log",
-    shell:
-        r"""
-        set -euo pipefail
-        url_base="s3://annotation-cache/vep_cache"
-        mkdir -p {params.destination:q}
-        if aws s3 ls --no-sign-request "$url_base/" \
-            | awk '$1 == "PRE" {{sub(/\/$/, "", $2); print $2}}' \
-            | grep -Fxq {params.source:q}; then
-            aws s3 --no-sign-request sync \
-                "$url_base/{params.source}" {params.destination:q}
-        else
-            vep_install \
-                --CACHEDIR {params.cache:q} \
-                --DESTDIR {params.cache:q} \
-                --PLUGINSDIR {params.cache:q}/Plugins/ \
-                --CACHE_VERSION {params.version:q} \
-                --SPECIES {params.species:q} \
-                --ASSEMBLY {params.genome:q} \
-                --PREFER_BIN --NO_UPDATE --AUTO cf
-        fi > {log:q} 2>&1
-        """
+include: "resources_vep.smk"
 
 
 rule download_annotsv_human:

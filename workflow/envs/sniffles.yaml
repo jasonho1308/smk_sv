@@ -2,4 +2,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - sniffles=2.2
+  - sniffles=2.8.1

@@ -2,6 +2,6 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - awscli=2.27.53
-  - snpeff=5.2
-  - ensembl-vep=114.2
+  - awscli=2.38.3
+  - snpeff=5.4.0c
+  - ensembl-vep=116.3

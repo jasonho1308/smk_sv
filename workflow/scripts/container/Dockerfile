@@ -1,4 +1,4 @@
-FROM jiadongxjtu/svision:latest
+FROM jiadongxjtu/svision@sha256:7e60772344ea1b59cc84247012686fe390118599eae902326f84284eb454b084
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 ENV PATH /opt/miniconda3/bin:/opt/bin:/opt/samtools/bin:${PATH}:/opt/snpEff/exec:/bin:${PATH}
@@ -22,8 +22,8 @@ RUN rm /'=3.6' && \
     conda config --add channels defaults && \
     conda config --add channels bioconda && \
     conda config --add channels conda-forge && \
-    git clone --recurse-submodules https://github.com/samtools/htslib.git /tmp/htslib && \
-    git clone https://github.com/samtools/bcftools.git /tmp/bcftools && \
+    git clone --branch 1.25 --recurse-submodules https://github.com/samtools/htslib.git /tmp/htslib && \
+    git clone --branch 1.25 https://github.com/samtools/bcftools.git /tmp/bcftools && \
     cd /tmp/bcftools && \
     make && \
     mv /tmp/bcftools/bcftools /bin/bcftools && \
@@ -31,11 +31,11 @@ RUN rm /'=3.6' && \
     cd /opt && \
     unzip /opt/snpEff_latest_core.zip && \
     rm /opt/snpEff_latest_core.zip && \
-    conda create -n vcf2maf -c bioconda vcf2maf==1.6.21 -y && \
+    conda create -n vcf2maf -c bioconda vcf2maf==1.6.22 -y && \
     cd /tmp && \
-    wget https://github.com/samtools/samtools/releases/download/1.20/samtools-1.20.tar.bz2 && \
-    tar -xvf samtools-1.20.tar.bz2 && \
-    cd samtools-1.20 && \
+    wget https://github.com/samtools/samtools/releases/download/1.25/samtools-1.25.tar.bz2 && \
+    tar -xvf samtools-1.25.tar.bz2 && \
+    cd samtools-1.25 && \
     ./configure --prefix=/opt/samtools && \
     make && \
     make install && \

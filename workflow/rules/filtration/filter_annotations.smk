@@ -19,6 +19,7 @@ rule filter_annotations:
     params:
         callers=CALLERS,
         terms_relative=config["terms_relative"],
+        missing_population_af=config["missing_population_af"],
     log:
         "logs/{sample}/filter_annotations.{caller}.{type_sv}.log",
     threads: 1

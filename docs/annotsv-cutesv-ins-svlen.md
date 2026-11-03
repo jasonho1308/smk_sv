@@ -11,7 +11,7 @@ Example from that run:
 | `cuteSV.INS.0` | 90320 | 115 | `-34,34` | 90286 | 90320 | blank |
 | `cuteSV.INS.1` | 136954 | 276 | `-19,19` | 136935 | 136954 | blank |
 
-`CIPOS` explains the start shift: 90320 − 34 = 90286. It represents breakpoint uncertainty, **not** insertion length. This is not evidence of a GRCh19/GRCh38 mismatch: `config/config.yaml` selects GRCh38, and the [AnnotSV rule](../workflow/rules/annotator/annotsv.smk) passes that value via `-genomeBuild`.
+`CIPOS` explains the start shift: 90320 − 34 = 90286. It represents breakpoint uncertainty, **not** insertion length. This is not evidence of a GRCh19/GRCh38 mismatch: the config for the original run selected GRCh38 (the default now selects CHM13), and the [AnnotSV rule](../workflow/rules/annotator/annotsv.smk) passes that value via `-genomeBuild`.
 
 ## Cause and scope
 

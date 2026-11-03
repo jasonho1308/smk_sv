@@ -23,12 +23,16 @@ config = {
     **config["inputs"],
     **config["filtering"],
     "terms_relative": config["annotation"]["terms_relative"],
+    "missing_population_af": config["filtering"].get("missing_population_af", "keep"),
     "species": config["annotation"]["species"],
     "genome": config["annotation"]["genome"],
     "version_snpeff": config["annotation"]["snpeff"]["version"],
     "cache_snpeff": config["annotation"]["snpeff"]["cache"],
+    "snpeff_build": config["annotation"]["snpeff"].get("build", {}),
     "version_vep": config["annotation"]["vep"]["version"],
-    "cache_vep": config["annotation"]["vep"]["cache"],
+    "cache_vep": config["annotation"]["vep"].get("cache", ""),
+    "vep_mode": config["annotation"]["vep"].get("mode", "cache"),
+    "vep_annotation": config["annotation"]["vep"].get("annotation", ""),
     "max_size_vep": config["annotation"]["vep"]["max_size"],
     "version_annotsv": config["annotation"]["annotsv"]["version"],
     "cache_annotsv": config["annotation"]["annotsv"]["cache"],
@@ -76,6 +80,7 @@ path_cache_snpeff = (
     f"{config['cache_snpeff']}/{config['genome']}.{config['version_snpeff']}"
 )
 path_cache_vep = f"{config['cache_vep']}/{config['species']}/{config['version_vep']}_{config['genome']}"
+path_vep_annotation = f"{config['vep_annotation']}.sorted.gz"
 svision_model_files = [
     f"{config['model_svision']}.data-00000-of-00001",
     f"{config['model_svision']}.index",

@@ -113,13 +113,18 @@ but it is **not evidence of a successful end-to-end T2T run**.
    linked T2T analysis-set `chm13v2.0.fa.gz` includes HG002-derived Y, whereas
    `chm13v2.0_noY.fa.gz` does not. Adjust the list for the actual FASTA; switching
    to a no-Y or accession-named assembly without changes is unsafe.
-4. **Prepare T2T annotation databases.** The local T2T config expects a custom
-   SnpEff `CHM13.v2.0` database and a locally prepared VEP `114_CHM13` cache; the
-   existing cache-download rules do not build these custom resources. AnnotSV
+4. **Prepare T2T annotation databases.** `snakemake build_snpeff_cache` builds
+   SnpEff `CHM13.v2.0` from the matching FASTA and RefSeq/Liftoff v5.3 annotation;
+   `snakemake resources` also includes this build. Review its log and configure
+   matching CDS/protein FASTAs to enable sequence cross-checks. VEP now uses
+   local, sorted/indexed CHM13 GFF/GTF models and the reference FASTA, without an
+   Ensembl cache. Missing population frequencies are explicitly reported as
+   unknown, not zero. AnnotSV
    explicitly accepts `-genomeBuild CHM13`, but still needs the corresponding
    annotation data. Do not substitute GRCh38 caches.
 5. **Keep Clair3's software and model compatible.** The T2T config names an older
-   R9.4.1 model while the rule uses a `latest` container. Verify the installed
+   R9.4.1 PyTorch model; the rule pins container v2.0.5 (Bioconda currently
+   provides v2.0.3). Verify the installed
    release and model format as well as chemistry/basecaller compatibility;
    T2T reference compatibility does not resolve a model-version mismatch.
 

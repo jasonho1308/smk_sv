@@ -1,5 +1,5 @@
 run:
-  dir: /projects/SV/analysis/wgs
+  dir: /projects/SV/analysis/wgs_t2t
 
 workflow:
   mapper: minimap2
@@ -15,12 +15,15 @@ workflow:
     - annotsv
 
 inputs:
-  fasta: /doc/reference/fasta/GRCh38.primary_assembly.genome.fa
-  index_minimap2: /doc/reference/minimap2/GRCh38/GRCh38.primary_assembly.genome.mmi
+  # T2T-CHM13v2.0 analysis set, chr* names, including HG002-derived chrY.
+  fasta: /doc/reference/T2T-CHM13v2.0/chm13v2.0.fa
+  index_minimap2: /doc/reference/minimap2/T2T-CHM13v2.0/chm13v2.0.mmi
   dir_data: /projects/SV/data/wgs
   suffix_fastq: .fq.gz
 
 filtering:
+  # Unknown population frequency is retained and reported, never treated as AF=0.
+  missing_population_af: keep
   min_reads: 3
   min_length_reads: 1000
   min_quality_mapping: 20
@@ -63,26 +66,37 @@ filtering:
 annotation:
   terms_relative: leuka?emia|blood|lymph|myelo|ha?ema|marrow|platel|thrombo|anemia|neutro
   species: homo_sapiens
-  genome: GRCh38
+  genome: CHM13
+  # Build CHM13.v2.0 locally using the matching RefSeq/Liftoff annotation.
   snpeff:
-    version: "87"
+    version: "v2.0"
     cache: /doc/snpeff
+    build:
+      genes: /doc/reference/T2T-CHM13v2.0/chm13v2.0_RefSeq_Liftoff_v5.3.gff
+      format: gff3
+      # Optional matching CDS/protein FASTAs enable SnpEff sequence cross-checks.
+      # Without these, the build explicitly skips both checks (see build log).
+      cds: null
+      protein: null
+  # Offline transcript annotation: no Ensembl cache or network connection required.
   vep:
-    version: 114
-    cache: /.vep
+    version: 116
+    mode: gff
+    annotation: /doc/reference/T2T-CHM13v2.0/chm13v2.0_GENCODEv35_CAT_Liftoff.vep.gff3
     max_size: 10000000
   annotsv:
     version: v3.5
     cache: /doc/tool/annotator/annotsv
 
 caller_settings:
-  tandem_repeats: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
-  nvtr: /doc/sniffles/human_GRCh38_no_alt_analysis_set.trf.bed
+  tandem_repeats: /doc/reference/T2T-CHM13v2.0/chm13.bed
+  nvtr: /doc/reference/T2T-CHM13v2.0/chm13.bed
   nanosv:
     config: /doc/nanosv/config.ini
-    bed: /doc/nanosv/bedfiles/hg38_genome_sample.bed
+    # Provide a CHM13 sampling BED before enabling NanoSV.
+    bed: null
   clair3:
-    model: /doc/clair3/models/r941_prom_sup_g5014
+    model: /doc/clair3/models/pytorch/r941_prom_sup_g5014
   svision:
     model: /doc/svision/svision-cnn-model.ckpt
 
@@ -91,19 +105,31 @@ resources:
   downloads:
     reference:
       assemblies:
-        GRCh38:
-          url: https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_48/GRCh38.primary_assembly.genome.fa.gz
-          checksum: md5:42e38e8dd5027dd2ae8aeb8f3a990d07
+        CHM13:
+          url: https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz
+          checksum: md5:06caded0055ec647a69acb708e13beff
           compression: gzip
     tandem_repeats:
       assemblies:
-        GRCh38:
-          url: https://raw.githubusercontent.com/fritzsedlazeck/Sniffles/684c7cb2f2f1d0a6dfe794617c661b1b7018c8c3/annotations/human_GRCh38_no_alt_analysis_set.trf.bed
-          checksum: sha256:729cbb38bff84534070033db1ae004b6368f6856eef12dd7ce93e8ee55f37407
+        CHM13:
+          url: https://raw.githubusercontent.com/KolmogorovLab/Severus/54303063d8e828f493761d52fb7dd3cea8ae3fc7/vntrs/chm13.bed
+          checksum: sha256:4e1f0dbf67c6930c93f772663ab7b40279fa6e487bd131effed8df7b33e2d902
+    snpeff_genes:
+      assemblies:
+        CHM13:
+          url: https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_RefSeq_Liftoff_v5.3.gff.gz
+          checksum: sha256:4a4f67d57dcabd6b7fe6efc91bbd0751d6fdf952ea2c626c2a4fd62615f75eeb
+          compression: gzip
+    vep_genes:
+      assemblies:
+        CHM13:
+          url: https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_GENCODEv35_CAT_Liftoff.vep.gff3.gz
+          checksum: sha256:3ff94c1bcdaf8ca6625a17cc1984b92f80d2f339bcd3f077ad6b93849a35d5e9
+          compression: gzip
     clair3_model:
-      url: https://www.bio8.cs.hku.hk/clair3/clair3_models/r941_prom_sup_g5014.tar.gz
-      checksum: sha256:9d78abb9b0311cf634d15afc61c2b41f749b74cb9c4905e3544896ae70b9f70d
-      archive_root: r941_prom_sup_g5014
+      url: https://github.com/HKU-BAL/Clair3/releases/download/v2.0.2/clair3_models_v2.0.2.tar.gz
+      checksum: sha256:27c7ea0777134567861e1f305a368d89a199332a1118a4f70df8bfebdbe1306b
+      archive_root: models/r941_prom_sup_g5014
     svision_model:
       url: https://drive.google.com/drive/folders/1j74IN6kPKEx9hy3aENx3zHYPUnyYWGvj
     nanosv_config:

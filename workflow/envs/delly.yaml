@@ -2,4 +2,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - delly=1.2.6
+  - delly=2.7.0

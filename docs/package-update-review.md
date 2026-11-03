@@ -1,5 +1,67 @@
 # Workflow package update review
 
+## Applied update — 2026-11-03
+
+The environment pins and `pixi.lock` have now been upgraded against the live
+Bioconda/conda-forge and PyPI registries. All 21 workflow environments resolve for
+`linux-64`, including NanoVar's pip dependencies (resolution only, not execution).
+
+| Component | New version |
+| --- | --- |
+| SAMtools / BCFtools / HTSlib | 1.25 |
+| minimap2 | 2.31 |
+| Sniffles | 2.8.1 |
+| Clair3 | 2.0.3 (latest Bioconda); pinned container 2.0.5 |
+| DELLY / Severus / NanoVar | 2.7.0 / 1.7 / 1.8.3 |
+| VEP / cache release | 116.3 / 116 |
+| SnpEff / SnpSift | 5.4.0c (requires Java >=21) |
+| awscli / curl / gdown | 2.38.3 / 8.23.0 / 6.5.1 |
+| perl-compress-raw-zlib | 2.214 |
+
+Already-current caller pins and AnnotSV 3.5.10 remain unchanged. SVision only
+publishes a mutable `latest` image; it is now pinned to its current digest.
+Python 3.11 is retained where required by Clair3 and NanoVar/TensorFlow.
+Unpinned support/R dependencies resolve to the latest compatible versions.
+The Pixi Snakemake/PBS forks are preserved and pinned to their current commits,
+rather than silently replaced with upstream packages.
+
+Defaults now use the T2T-CHM13v2.0 analysis set (including chrY), its matching
+Severus repeat BED, and a checksummed PyTorch model archive. SnpEff now builds its
+custom CHM13 database from RefSeq/Liftoff v5.3 automatically; VEP now uses local
+CHM13 GFF/GTF models without an Ensembl cache: see [README](../README.md#reference-resources).
+Do not reuse GRCh38 alignments/results, and benchmark caller changes before
+interpreting biological differences.
+
+Validation: all 21 Linux environments solved, `pixi lock --check --no-install`
+passed, and all 9 tests in `tests/test_t2t_configuration.py` passed using the
+pinned Snakemake fork and deployment plugins. Tests cover configuration/schema
+consistency, PyTorch archive layout and legacy-model rejection, complete
+analysis/resource DAG dry-runs, missing-cache guidance, and existing-cache reuse.
+No whole-genome analysis, Linux tool execution, or Docker image rebuild was run.
+
+Subsequent SnpEff build integration: **23 tests pass**, including real SnpEff
+5.4c toy-genome builds, CDS/protein verification, rejection of mismatched CDS,
+and build-to-annotation execution through Snakemake. The full CHM13 database
+has not been built here. The implementation follows the
+[official database-building guide](https://pcingola.github.io/SnpEff/snpeff/build_db/).
+
+Offline VEP/filter integration: **35 tests pass** and all **22 Linux environment
+specifications resolve**. Tests include HTSlib sorting/indexing, a real VEP 116.3
+GFF and GTF annotation in a network-disabled Linux container, conversion with vcf2maf 1.6.22,
+and real R/BCFtools filtering under keep/exclude/error missing-frequency policies.
+Annotated TSV widths are header-driven and command failures are fatal. A temporary
+native macOS VEP install failed at startup; the real VEP execution test therefore
+uses Linux, the production target. No whole-genome analysis was run.
+
+Version sources: [Bioconda registry](https://api.anaconda.org/package/bioconda/samtools),
+[conda-forge registry](https://api.anaconda.org/package/conda-forge/awscli),
+[NanoVar PyPI](https://pypi.org/project/nanovar/),
+[Clair3 README](https://github.com/HKU-BAL/Clair3#latest-updates),
+[Clair3 model archive](https://github.com/HKU-BAL/Clair3/releases/tag/v2.0.2),
+[T2T analysis sets](https://github.com/marbl/CHM13#genome-assembly).
+
+## Historical review — 2026-09-24
+
 Reviewed 2026-09-24 against the `linux-64` packages available from Bioconda/conda-forge and the upstream release notes linked below. These are recommendations, **not** changes to environment files. Update and validate packages in small groups; newer variant callers can change biological results.
 
 ## Recommended first: HTS utilities

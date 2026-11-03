@@ -2,6 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - bcftools=1.25
   - bioconductor-biocparallel
   - bioconductor-genomicranges
   - r-base>4.0

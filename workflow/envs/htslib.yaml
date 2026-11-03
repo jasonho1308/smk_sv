@@ -1,0 +1,7 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - htslib=1.25
+  - coreutils
+  - python>=3.11

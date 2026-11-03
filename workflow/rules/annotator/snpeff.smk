@@ -12,8 +12,11 @@ rule snpeff:
         cache=lambda wildcards, input: str(Path(input.cache).parent),
         version=config["version_snpeff"],
         genome=config["genome"],
+        custom_config=(
+            f"{path_cache_snpeff}/snpEff.config" if config["snpeff_build"] else ""
+        ),
     resources:
-        mem_mb=1,
+        mem_mb=8000,
     log:
         "logs/{sample}/snpeff.{caller}.{type_sv}.log",
     shell:
@@ -33,7 +36,11 @@ rule snpeff:
             input=${{input%.*}}.4_5.vcf
         fi
 
-        snpEff -Xmx{resources.mem_mb}M \\
+        config_args=()
+        if [[ -n {params.custom_config:q} ]]; then
+            config_args=(-c {params.custom_config:q})
+        fi
+        snpEff -Xmx{resources.mem_mb}M "${{config_args[@]}}" \\
             -nodownload -v -lof -canon \\
             -dataDir {params.cache} -s {output.html} \\
             {params.genome}.{params.version} ${{input}} \\

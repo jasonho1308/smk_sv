@@ -7,9 +7,7 @@ rule convert_vep:
     output:
         maf="{caller}/{sample}/merged/{caller}.{type_sv}.vep.maf",
     params:
-        version=config["version_vep"],
         genome=config["genome"],
-        cache=config["cache_vep"],
         species=config["species"],
         normalize_script=workflow.basedir + "/scripts/normalize_sv_chr2.sh",
     log:
@@ -48,8 +46,8 @@ rule convert_vep:
 
         vcf2maf.pl \\
             --input-vcf ${{input}} --output-maf {output.maf} \\
-            --ncbi-build {params.genome} --cache-version {params.version} \\
-            --ref-fasta {input.fasta} --vcf-tumor-id {wildcards.sample} --tumor-id {wildcards.sample} --vep-data {params.cache} \\
+            --ncbi-build {params.genome} \\
+            --ref-fasta {input.fasta} --vcf-tumor-id {wildcards.sample} --tumor-id {wildcards.sample} \\
             --species {params.species} --inhibit-vep; }} \\
         1> {log} 2>&1
         """

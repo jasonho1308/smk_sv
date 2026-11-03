@@ -89,6 +89,12 @@
         "filtering": {
             "type": "object",
             "properties": {
+                "missing_population_af": {
+                    "type": "string",
+                    "enum": ["keep", "exclude", "error"],
+                    "default": "keep",
+                    "description": "Policy for variants without measured population frequencies; unknown is never treated as zero."
+                },
                 "min_reads": {
                     "type": "integer",
                     "minimum": 1
@@ -202,8 +208,8 @@
                             "type": "string"
                         },
                         "bed": {
-                            "type": "string",
-                            "description": "NanoSV bed filtering. (Optional, only hg19 is available on github)"
+                            "type": ["string", "null"],
+                            "description": "Optional assembly-matched NanoSV sampling BED. Required when enabling NanoSV on CHM13."
                         }
                     },
                     "required": [
@@ -338,6 +344,18 @@
                 },
                 "cache": {
                     "type": "string"
+                },
+                "build": {
+                    "type": "object",
+                    "description": "Build a custom database instead of downloading a prebuilt database. Omit to use prebuilt mode.",
+                    "properties": {
+                        "genes": {"type": "string", "minLength": 1},
+                        "format": {"type": "string", "enum": ["gff3", "gtf22"], "default": "gff3"},
+                        "cds": {"type": ["string", "null"]},
+                        "protein": {"type": ["string", "null"]}
+                    },
+                    "required": ["genes"],
+                    "additionalProperties": false
                 }
             },
             "required": [
@@ -349,6 +367,8 @@
         "vep": {
             "type": "object",
             "properties": {
+                "mode": {"type": "string", "enum": ["cache", "gff", "gtf"], "default": "cache"},
+                "annotation": {"type": "string", "minLength": 1},
                 "version": {
                     "type": "integer"
                 },
@@ -360,10 +380,13 @@
                     "minimum": 0
                 }
             },
-            "required": [
-                "version",
-                "cache",
-                "max_size"
+            "required": ["version", "max_size"],
+            "allOf": [
+                {
+                    "if": {"properties": {"mode": {"enum": ["gff", "gtf"]}}, "required": ["mode"]},
+                    "then": {"required": ["annotation"]},
+                    "else": {"required": ["cache"]}
+                }
             ],
             "additionalProperties": false
         },
@@ -442,6 +465,12 @@
                     "$ref": "#/$defs/resourceDownloadByAssembly"
                 },
                 "nvtr": {
+                    "$ref": "#/$defs/resourceDownloadByAssembly"
+                },
+                "snpeff_genes": {
+                    "$ref": "#/$defs/resourceDownloadByAssembly"
+                },
+                "vep_genes": {
                     "$ref": "#/$defs/resourceDownloadByAssembly"
                 },
                 "clair3_model": {

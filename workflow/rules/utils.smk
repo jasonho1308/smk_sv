@@ -55,7 +55,10 @@ def get_resource_targets(wildcards=None):
     if "snpeff" in ANNOTATORS:
         targets.append(path_cache_snpeff)
     if "vep" in ANNOTATORS:
-        targets.append(path_cache_vep)
+        if config["vep_mode"] == "cache":
+            targets.append(path_cache_vep)
+        else:
+            targets.extend([path_vep_annotation, f"{path_vep_annotation}.tbi"])
     if "annotsv" in ANNOTATORS:
         targets.extend(get_annotsv_cache_outputs().values())
 

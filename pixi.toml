@@ -2,21 +2,21 @@
 authors = ["Minghao Jiang | xomics <jiangminghao1001@163.com>"]
 channels = ["conda-forge", "bioconda"]
 name = "smk_sv"
-platforms = ["linux-64"]
+platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
 [tasks]
 
 [dependencies]
-conda = ">=26.7.2,<27"
+conda = ">=26.9.4,<27"
 snpeff = ">=5.4.0c,<6"
-greenlet = ">=3.5.5,<4"
+greenlet = ">=3.5.6,<4"
 packaging = ">=26.3,<27"
 peppy = ">=0.40.8,<0.41"
-lazygit = ">=0.65.0,<0.66"
+lazygit = ">=0.66.2,<0.67"
 
 [pypi-dependencies]
-snakemake-executor-plugin-pbs = { git = "https://github.com/jasonho1308/snakemake-executor-plugin-pbs" }
-snakemake = { git = "https://github.com/jasonho1308/snakemake" }
-snakemake-software-deployment-plugin-conda = ">=0.8.1, <0.9"
+snakemake-executor-plugin-pbs = { git = "https://github.com/jasonho1308/snakemake-executor-plugin-pbs", rev = "5dbe623c0f23c77caffc91b6a24f533d07c78675" }
+snakemake = { git = "https://github.com/jasonho1308/snakemake", rev = "41352db16de15b786aee5e02fafda6a63d855ec9" }
+snakemake-software-deployment-plugin-conda = ">=0.8.7, <0.9"
 snakemake-software-deployment-plugin-container = ">=0.7.5, <0.8"

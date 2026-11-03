@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bcftools=1.22
+  - bcftools=1.25
   - coreutils
   - curl
   - python=3

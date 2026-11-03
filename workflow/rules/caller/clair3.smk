@@ -2,7 +2,7 @@ rule clair3:
     conda:
         "../../envs/clair3.yaml"
     container:
-        "docker://hkubal/clair3:latest"
+        "docker://hkubal/clair3:v2.0.5"
     input:
         bam=f"{MAPPER}/{{sample}}/{{sample}}.sorted.bam",
         fasta=config["fasta"],
@@ -21,7 +21,12 @@ rule clair3:
         "logs/{sample}/clair3.log",
     shell:
         """
-        {{ run_clair3.sh \\
+        {{ set -euo pipefail
+        test -s {input.model:q}/pileup.pt && test -s {input.model:q}/full_alignment.pt || {{
+            echo "Clair3 2.x requires PyTorch pileup.pt and full_alignment.pt; replace legacy TensorFlow models." >&2
+            exit 1
+        }}
+        run_clair3.sh \\
             --use_whatshap_for_final_output_haplotagging \\
             --use_whatshap_for_final_output_phasing \\
             --enable_phasing \\

@@ -1,4 +1,5 @@
-.libPaths(paste0(R.home(), "/library"))
+# Use the active R environment's library paths (including its installed packages).
+snakemake@source("annotation_io.R")
 snakemake@source("utils.R")
 
 file_annotsv <- snakemake@input[["annotsv"]]
@@ -15,6 +16,7 @@ path_ids <- snakemake@output[["ids"]]
 table <- snakemake@output[["table"]]
 callers <- sort(snakemake@params[["callers"]])
 terms_relative <- snakemake@params[["terms_relative"]]
+missing_population_af <- snakemake@params[["missing_population_af"]]
 threads <- snakemake@threads
 s <- snakemake@wildcards[["sample"]]
 t <- snakemake@wildcards[["caller"]]
@@ -22,10 +24,10 @@ v <- snakemake@wildcards[["type_sv"]]
 
 
 annotsv <- file_annotsv |>
-  my_vroom(n_col = 120, quote = "\'")
+  my_vroom(quote = "") |>
+  prepare_annotsv_annotations(sv_type = v)
 id_info <- file_tab |>
-  my_vroom(col_names = FALSE) |>
-  setNames(c("chr", "pos", "ref", "alt", callers))
+  my_vroom(col_names = c("chr", "pos", "ref", "alt", callers))
 if (nrow(annotsv) != 0) {
   tsv_annotsv <- annotsv |>
     dplyr::filter(ID %in% na.omit(id_info[[t]])) |>
@@ -35,14 +37,17 @@ if (nrow(annotsv) != 0) {
 }
 maf_vep <- file_maf |>
   my_vroom(na_append = ".") |>
+  prepare_vep_annotations(missing_population_af = missing_population_af) |>
   tidyr::drop_na(Start_Position)
 tsv_snpeff <- file_tsv |>
-  my_vroom()
+  my_vroom() |>
+  prepare_snpeff_annotations()
 
 message(glue("[INFO] Applying filters on {s} | {t} | {v} ..."))
 ids <- filter_svid(
   caller = t, sv_type = v, annotsv_result = tsv_annotsv, vep_result = maf_vep,
-  snpeff_result = tsv_snpeff, terms_relative = terms_relative, stringent = FALSE
+  snpeff_result = tsv_snpeff, terms_relative = terms_relative,
+  missing_population_af = missing_population_af, stringent = FALSE
 )
 
 list_annotation <- list(
@@ -70,8 +75,8 @@ write.table(
 )
 
 write.table(ids, path_ids, quote = FALSE, col.names = FALSE, row.names = FALSE)
-system(glue::glue('bcftools filter -i "ID=@{path_ids}" {vep} > {vep_final}'))
-system(glue::glue('bcftools filter -i "ID=@{path_ids}" {snpeff} > {snpeff_final}'))
-system(glue::glue('bcftools filter -i "ID=@{path_ids}" {vcf} > {vcf_final}'))
+filter_vcf_checked(vep, vep_final, path_ids)
+filter_vcf_checked(snpeff, snpeff_final, path_ids)
+filter_vcf_checked(vcf, vcf_final, path_ids)
 
 save.image(snakemake@output[["rdata"]])

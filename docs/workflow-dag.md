@@ -167,8 +167,10 @@ flowchart LR
     download_tandem_repeats["download_tandem_repeats<br/>shared tandem-repeat / VNTR BED"]
     download_clair3_model["download_clair3_model<br/>Clair3 model directory"]
     download_svision_model["download_svision_model<br/>checkpoint .data / .index / .meta"]
-    download_vep_cache["download_vep_cache"]
-    download_snpeff_cache["download_snpeff_cache"]
+    download_vep_genes["download_vep_genes<br/>CHM13 VEP-formatted GFF3"]
+    prepare_vep_annotation["prepare_vep_annotation<br/>validate, sort, bgzip, tabix"]
+    download_snpeff_genes["download_snpeff_genes<br/>CHM13 RefSeq/Liftoff v5.3 GFF3"]
+    build_snpeff_cache["build_snpeff_cache<br/>custom config + predictor database"]
     download_annotsv_human["download_annotsv_human<br/>Annotations_Human"]
     download_annotsv_exomiser["download_annotsv_exomiser<br/>versioned Exomiser directory"]
 
@@ -190,8 +192,13 @@ flowchart LR
     download_svision_model --> svision
     download_tandem_repeats --> sniffles
     download_tandem_repeats --> severus
-    download_vep_cache --> vep
-    download_snpeff_cache --> snpeff
+    download_vep_genes --> prepare_vep_annotation
+    faidx --> prepare_vep_annotation
+    prepare_vep_annotation --> vep
+    download_reference --> build_snpeff_cache
+    faidx --> build_snpeff_cache
+    download_snpeff_genes --> build_snpeff_cache
+    build_snpeff_cache --> snpeff
     download_annotsv_human --> annotsv
     download_annotsv_exomiser --> annotsv
 
@@ -201,11 +208,20 @@ flowchart LR
     download_tandem_repeats --> resources
     download_clair3_model --> resources
     download_svision_model --> resources
-    download_vep_cache --> resources
-    download_snpeff_cache --> resources
+    prepare_vep_annotation --> resources
+    build_snpeff_cache --> resources
     download_annotsv_human --> resources
     download_annotsv_exomiser --> resources
 ```
+
+The default custom SnpEff build follows the [official build guide](https://pcingola.github.io/SnpEff/snpeff/build_db/).
+Optional matching CDS/protein FASTAs are additional build inputs; without them,
+sequence cross-checks are explicitly skipped. Omitting `annotation.snpeff.build`
+restores `download_snpeff_cache` instead of the gene-download/build branch.
+VEP uses the local prepared GFF/GTF plus FASTA without an Ensembl cache. Its
+literal `--offline` flag is omitted in transcript-only mode because that flag
+implies cache loading. Missing population frequencies are reported as unknown;
+`filtering.missing_population_af` controls keep/exclude/error behavior.
 
 `caller_settings.nvtr` and `caller_settings.tandem_repeats` currently point to the
 same BED, so `download_tandem_repeats` serves both Severus and Sniffles. If those

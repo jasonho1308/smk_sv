@@ -25,8 +25,10 @@ digraph workflow {
         download_tandem_repeats [label="download_tandem_repeats\nshared tandem-repeat / VNTR BED"];
         download_clair3_model [label="download_clair3_model\nmodel directory"];
         download_svision_model [label="download_svision_model\ncheckpoint data / index / meta"];
-        download_vep_cache [label="download_vep_cache"];
-        download_snpeff_cache [label="download_snpeff_cache"];
+        download_vep_genes [label="download_vep_genes\nCHM13 VEP-formatted GFF3"];
+        prepare_vep_annotation [label="prepare_vep_annotation\nvalidate / sort / bgzip / tabix"];
+        download_snpeff_genes [label="download_snpeff_genes\nCHM13 RefSeq/Liftoff v5.3 GFF3"];
+        build_snpeff_cache [label="build_snpeff_cache\ncustom config + predictor database"];
         download_annotsv_human [label="download_annotsv_human"];
         download_annotsv_exomiser [label="download_annotsv_exomiser"];
         resources [label="resources\nalternative aggregate target", shape=oval];
@@ -116,10 +118,12 @@ digraph workflow {
     download_clair3_model -> clair3;
     download_svision_model -> svision;
     download_tandem_repeats -> {sniffles severus};
-    download_vep_cache -> vep;
-    download_snpeff_cache -> snpeff;
+    {download_vep_genes faidx} -> prepare_vep_annotation;
+    prepare_vep_annotation -> vep;
+    {download_reference faidx download_snpeff_genes} -> build_snpeff_cache;
+    build_snpeff_cache -> snpeff;
     {download_annotsv_human download_annotsv_exomiser} -> annotsv;
     {download_reference minimap2_index faidx download_tandem_repeats
-     download_clair3_model download_svision_model download_vep_cache
-     download_snpeff_cache download_annotsv_human download_annotsv_exomiser} -> resources;
+     download_clair3_model download_svision_model prepare_vep_annotation
+     build_snpeff_cache download_annotsv_human download_annotsv_exomiser} -> resources;
 }

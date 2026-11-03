@@ -2,6 +2,6 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - openjdk=17
-  - snpeff=5.2
-  - snpsift=5.2
+  - openjdk>=21
+  - snpeff=5.4.0c
+  - snpsift=5.4.0c
