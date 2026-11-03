@@ -1,0 +1,125 @@
+// Source-derived rule-level draft; not a native Snakemake --dag export.
+// Render: dot -Tsvg docs/workflow-dag.dot -o docs/workflow-dag.svg
+// Scope: config/config.yaml; five SV callers, three annotators.
+// Solid edges: analysis dependencies. Dashed edges: resource dependencies.
+// Resource edges are real dependencies, NOT optional branches.
+// Repeated wildcard jobs are collapsed; see workflow-dag.md for expansion.
+digraph workflow {
+    graph [rankdir=TB, compound=true, newrank=true, splines=polyline,
+           nodesep=0.35, ranksep=0.65, bgcolor="white", fontname="Helvetica",
+           labelloc=t, label="smk_sv — detailed rule-level DAG\nFive callers × five SV types per sample; SVision × 24 chromosomes"];
+    node [shape=box, style="rounded,filled", fillcolor="#ffedd5",
+          color="#ea580c", fontname="Helvetica", fontsize=10, margin="0.15,0.10"];
+    edge [color="#475569", fontname="Helvetica", fontsize=9];
+
+    fastq [shape=note, fillcolor="#e2e8f0", color="#64748b",
+           label="FASTQ\n{dir_data}/{sample}{suffix_fastq}"];
+
+    subgraph cluster_resources {
+        label="Shared resource preparation — existing resources can be reused";
+        color="#94a3b8"; style=rounded;
+        node [fillcolor="#f1f5f9", color="#64748b"];
+        download_reference [label="download_reference\nreference FASTA"];
+        minimap2_index [label="minimap2_index\nreference .mmi"];
+        faidx [label="faidx\nreference .fai"];
+        download_tandem_repeats [label="download_tandem_repeats\nshared tandem-repeat / VNTR BED"];
+        download_clair3_model [label="download_clair3_model\nmodel directory"];
+        download_svision_model [label="download_svision_model\ncheckpoint data / index / meta"];
+        download_vep_cache [label="download_vep_cache"];
+        download_snpeff_cache [label="download_snpeff_cache"];
+        download_annotsv_human [label="download_annotsv_human"];
+        download_annotsv_exomiser [label="download_annotsv_exomiser"];
+        resources [label="resources\nalternative aggregate target", shape=oval];
+    }
+
+    minimap2 [label="minimap2\nONT alignment + sorting\n{sample}.sorted.bam + .bam.csi"];
+
+    subgraph cluster_callers {
+        label="Configured caller branches — per sample";
+        color="#93c5fd"; style=rounded;
+        node [fillcolor="#dbeafe", color="#2563eb"];
+        cutesv [label="cutesv\ncutesv.vcf"];
+        sniffles [label="sniffles\nsniffles.vcf"];
+        svim [label="svim\nvariants.vcf + svim.vcf symlink"];
+        clair3 [label="clair3\nphased_merge_output.vcf.gz\nhaplotagged BAM + BAI"];
+        severus [label="severus\nall_SVs/severus_all.vcf"];
+        format_severus [label="format_severus\nseverus.vcf"];
+        svision [label="svision × 24 chromosomes\nchroms/{chrom}/*.graph.vcf"];
+        format_svision [label="format_svision\ngather / normalize\nsvision.vcf"];
+    }
+
+    subgraph cluster_processing {
+        label="Common processing — per caller × sample; type splitting × 5";
+        color="#fdba74"; style=rounded;
+        duphold [label="duphold\nremove invalid POS; sort; annotate depth\n{caller}.duphold.vcf"];
+        hard_filter [label="hard_filter\nsupport / coverage / size / depth filters\n{caller}.duphold.filtered.vcf"];
+        separate_types [label="separate_types\n{caller}.{type_sv}.vcf\nDEL / DUP / INV / BND / INS"];
+    }
+
+    survivor [fillcolor="#dcfce7", color="#16a34a",
+              label="survivor — per sample × type\ngather all callers\nminimum support = n_callers[type_sv] = 3\n{sample}.{type_sv}.merged.vcf"];
+
+    subgraph cluster_annotations {
+        label="Annotation — per caller × sample × SV type";
+        color="#c4b5fd"; style=rounded;
+        node [fillcolor="#ede9fe", color="#7c3aed"];
+        vep [label="vep\n{caller}.{type_sv}.vep.vcf + HTML"];
+        snpeff [label="snpeff\n{caller}.{type_sv}.snpeff.vcf + HTML"];
+        annotsv [label="annotsv\n{caller}.{type_sv}.annotsv.tsv"];
+        restore_annotsv_length [label="restore_annotsv_length\n{caller}.{type_sv}.annotsv.length.tsv"];
+    }
+
+    subgraph cluster_filtering {
+        label="Consensus selection + annotation filtering — per caller × sample × SV type";
+        color="#c4b5fd"; style=rounded;
+        node [fillcolor="#ede9fe", color="#7c3aed"];
+        extract_annotations [label="extract_annotations\nconsensus-to-caller ID mapping\nsubset original / VEP / SnpEff VCFs\ncross-caller ID table"];
+        convert_vep [label="convert_vep\nnormalize breakpoints; vcf2maf\nmerged/{caller}.{type_sv}.vep.maf"];
+        convert_snpeff [label="convert_snpeff\nSnpSift extractFields\nmerged/{caller}.{type_sv}.snpeff.tsv"];
+        filter_annotations [label="filter_annotations\ncombine AnnotSV / VEP / SnpEff + IDs\nfiltered original / VEP / SnpEff VCFs\nannotation TSV + RData"];
+    }
+
+    survivor_final [fillcolor="#dcfce7", color="#16a34a",
+                    label="survivor_final — per sample × type\ngather all filtered caller VCFs\nminimum support = n_callers[type_sv] - 1 = 2"];
+    final_vcfs [shape=note, fillcolor="#dcfce7", color="#16a34a",
+                label="survivor/{sample}/final/{sample}.{type_sv}.merged.vcf\nFive final consensus VCFs per sample"];
+    all [shape=oval, fillcolor="#dcfce7", color="#16a34a",
+         label="all\nall samples × five SV types"];
+
+    fastq -> minimap2;
+    minimap2 -> {cutesv sniffles svim clair3 svision};
+    clair3 -> severus [label="phased VCF + haplotagged BAM"];
+    severus -> format_severus;
+    svision -> format_svision [label="gather 24 chromosomes"];
+    {cutesv sniffles svim format_severus format_svision} -> duphold;
+    minimap2 -> duphold [label="original mapper BAM"];
+    duphold -> hard_filter -> separate_types;
+    separate_types -> survivor [label="all callers, same sample / type"];
+    separate_types -> {vep snpeff annotsv};
+    separate_types -> restore_annotsv_length [label="original type-specific VCF"];
+    annotsv -> restore_annotsv_length;
+    survivor -> extract_annotations [label="consensus membership"];
+    separate_types -> extract_annotations [label="original VCF"];
+    {vep snpeff} -> extract_annotations;
+    extract_annotations -> {convert_vep convert_snpeff};
+    extract_annotations -> filter_annotations [label="three selected VCFs + ID table"];
+    {restore_annotsv_length convert_vep convert_snpeff} -> filter_annotations;
+    filter_annotations -> survivor_final [label="all callers, same sample / type"];
+    survivor_final -> final_vcfs -> all;
+
+    // Shared-resource dependencies; not optional analysis branches.
+    edge [style=dashed, color="#94a3b8"];
+    download_reference -> {minimap2_index faidx};
+    minimap2_index -> minimap2;
+    download_reference -> {cutesv sniffles svim svision clair3 duphold vep snpeff convert_vep};
+    faidx -> clair3;
+    download_clair3_model -> clair3;
+    download_svision_model -> svision;
+    download_tandem_repeats -> {sniffles severus};
+    download_vep_cache -> vep;
+    download_snpeff_cache -> snpeff;
+    {download_annotsv_human download_annotsv_exomiser} -> annotsv;
+    {download_reference minimap2_index faidx download_tandem_repeats
+     download_clair3_model download_svision_model download_vep_cache
+     download_snpeff_cache download_annotsv_human download_annotsv_exomiser} -> resources;
+}

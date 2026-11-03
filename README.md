@@ -12,6 +12,9 @@ Minghao Jiang, <jiang01@icloud.com>
 
 ## Tools Used
 
+See the [simple caller guide](docs/callers-guide.md) for what each caller does,
+which callers are enabled, and the original project URLs.
+
 - SV callers
 
    [cuteSV](https://github.com/tjiangHIT/cuteSV), [Sniffles](https://github.com/fritzsedlazeck/Sniffles), [SVIM](https://github.com/eldariont/svim), [SVision](https://github.com/xjtu-omics/SVision), [Severus](https://github.com/KolmogorovLab/Severus), [NanoSV](https://github.com/mroosmalen/nanosv), [NanoVar](https://github.com/cytham/nanovar), [Delly](https://github.com/dellytools/delly), [Debreak](https://github.com/Maggi-Chen/DeBreak)
@@ -19,6 +22,8 @@ Minghao Jiang, <jiang01@icloud.com>
 - Annotation tools
 
    [AnnotSV](https://github.com/lgmgeo/AnnotSV), [VEP](https://www.ensembl.org/info/docs/tools/vep/index.html), [SnpEff](http://pcingola.github.io/SnpEff/snpeff/introduction/)
+
+   Known issue: [AnnotSV/cuteSV INS `SV_length` mismatch](docs/annotsv-cutesv-ins-svlen.md).
 
 - R packages
 
@@ -29,6 +34,10 @@ Minghao Jiang, <jiang01@icloud.com>
    [Minimap2](https://github.com/lh3/minimap2), [SAMtools](https://github.com/samtools/samtools), [BCFtools](http://samtools.github.io/bcftools/bcftools.html), [SURVIVOR](https://github.com/fritzsedlazeck/SURVIVOR), [vcf2maf](https://github.com/mskcc/vcf2maf), [SnpSift](http://pcingola.github.io/SnpEff/snpsift/introduction/), [duphold](https://github.com/brentp/duphold)
 
 ## Pipeline Structure
+
+For a detailed, rule-level DAG of the configured workflow, including resource
+preparation and both consensus stages, see [Detailed Snakemake DAG](docs/workflow-dag.md)
+and its [Graphviz source](docs/workflow-dag.dot).
 
 ```mermaid
 %%{
