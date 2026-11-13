@@ -23,9 +23,20 @@ my_vroom <- function(file, na_append = NULL, delim = "\t", comment = "#", col_na
   )
   problems <- vroom::problems(dat)
   if (nrow(problems)) {
-    stop(sprintf("Malformed annotation table %s: %d parsing problems", file, nrow(problems)), call. = FALSE)
+    sample <- head(problems, 5L)
+    details <- sprintf("row %s, column %s: expected %s; actual %s",
+                       sample$row, sample$col, sample$expected, sample$actual)
+    stop(sprintf("Malformed annotation table %s: %d parsing problems\n%s",
+                 file, nrow(problems), paste(details, collapse = "\n")), call. = FALSE)
   }
   dat
+}
+
+read_annotsv_annotations <- function(file, sv_type) {
+  # AnnotSV fields contain literal hashes (e.g. phenotype references) and quotes.
+  # Treating # as a comment truncates valid rows and loses downstream columns.
+  my_vroom(file, quote = "", comment = "") |>
+    prepare_annotsv_annotations(sv_type = sv_type)
 }
 
 nothing <- function(x) x

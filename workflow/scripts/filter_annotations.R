@@ -23,9 +23,7 @@ t <- snakemake@wildcards[["caller"]]
 v <- snakemake@wildcards[["type_sv"]]
 
 
-annotsv <- file_annotsv |>
-  my_vroom(quote = "") |>
-  prepare_annotsv_annotations(sv_type = v)
+annotsv <- read_annotsv_annotations(file_annotsv, sv_type = v)
 id_info <- file_tab |>
   my_vroom(col_names = c("chr", "pos", "ref", "alt", callers))
 if (nrow(annotsv) != 0) {
