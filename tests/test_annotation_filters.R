@@ -18,8 +18,40 @@ path <- file.path(work, "wide.tsv")
 write.table(wide, path, sep = "\t", quote = FALSE, row.names = FALSE)
 parsed <- my_vroom(path, quote = "")
 stopifnot(ncol(parsed) == 131, parsed[[1]][[1]] == "O'Brien")
+# Use the workflow's AnnotSV reader: # and quotes are literal annotation text,
+# not comment/quote delimiters. Later columns and subsequent rows must survive.
+annotsv_path <- file.path(work, "annotsv.tsv")
+writeLines(c("ID\tSV_chrom\tSV_start\tSV_end\tOMIM_phenotype\tACMG_class",
+             "del1\tchr1\t10\t20\tO'Brien disease #123456\t3",
+             "del2\tchr2\t30\t40\t\"Disease\" #654321\t4"), annotsv_path)
+for (sv_type in c("DEL", "INV")) {
+  parsed_annotsv <- suppressWarnings(read_annotsv_annotations(annotsv_path, sv_type))
+  stopifnot(nrow(parsed_annotsv) == 2L,
+            identical(parsed_annotsv$ID, c("del1", "del2")),
+            identical(parsed_annotsv$OMIM_phenotype, c("O'Brien disease #123456", "\"Disease\" #654321")),
+            identical(parsed_annotsv$ACMG_class, c("3", "4")))
+}
+# INV benign-overlap evidence comes after free-text annotations. A literal hash
+# must not truncate that evidence or silently change the filtering decision.
+writeLines(c("ID\tSV_chrom\tSV_start\tSV_end\tOMIM_phenotype\tB_inv_coord\tB_inv_AFmax",
+             "inv1\tchr1\t10\t20\tDisease #123456\tchr1:10-20\t0.1"), annotsv_path)
+parsed_inv <- suppressWarnings(read_annotsv_annotations(annotsv_path, "INV"))
+parsed_inv <- add_overlap_flag_annotsv(parsed_inv, "INV", workers = 1)
+stopifnot(identical(parsed_inv$OMIM_phenotype, "Disease #123456"),
+          identical(parsed_inv$B_inv_AFmax, "0.1"), parsed_inv$flag_inv,
+          identical(filter_annotsv("INV", parsed_inv, "blood")$id_exclude, "inv1"))
 writeLines(c("a\tb", "one\ttwo\tthree"), file.path(work, "bad.tsv"))
 expect_error(suppressWarnings(my_vroom(file.path(work, "bad.tsv"))), "Malformed annotation")
+expect_error(suppressWarnings(my_vroom(file.path(work, "bad.tsv"))),
+             "row 2, column 3: expected 2 columns; actual 3 columns")
+writeLines(c("ID\tSV_chrom\tSV_start\tSV_end", "del1\tchr1\t10\t20\textra"), annotsv_path)
+for (sv_type in c("DEL", "INV")) {
+  expect_error(suppressWarnings(read_annotsv_annotations(annotsv_path, sv_type)), "Malformed annotation")
+}
+# Other readers still accept metadata comments (e.g. VEP MAF headers).
+commented_path <- file.path(work, "commented.tsv")
+writeLines(c("# metadata", "a\tb", "one\ttwo"), commented_path)
+stopifnot(identical(my_vroom(commented_path)$a, "one"))
 expect_error(prepare_annotsv_annotations(data.frame(foo = "bar"), "DEL"), "required columns")
 
 # Absent frequencies are unknown, AF=0 is measured, and comma-separated AF works.

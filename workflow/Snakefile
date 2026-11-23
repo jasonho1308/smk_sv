@@ -9,6 +9,7 @@ rule all:
 
 include: f"rules/mapper/{MAPPER}.smk"
 include: "rules/samtools/faidx.smk"
+include: "rules/dux4.smk"
 include: "rules/caller/clair3.smk"
 
 

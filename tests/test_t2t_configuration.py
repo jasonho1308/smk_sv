@@ -147,6 +147,17 @@ def test_full_analysis_dry_run_builds_t2t_dag(project):
     assert "GRCh38.primary_assembly" not in output
 
 
+def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
+    proc = run_snakemake(project, "dux4", "--dry-run", "--printshellcmds")
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "rule scan_dux4:" in output
+    assert "chm13v2.0.partners.bed" in output and "chm13v2.0.sources.bed" in output
+    assert "example.sorted.bam.csi" in output
+    assert "example.junctions.tsv" in output
+    assert "rule survivor_final:" not in output
+
+
 def test_clair3_rejects_existing_tensorflow_model(project):
     path, config = project
     fasta = Path(config["inputs"]["fasta"])

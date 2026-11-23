@@ -1,0 +1,3 @@
+# T2T-CHM13v2.0; BED coordinates (0-based, end-exclusive)
+# 4q: from 2 kb upstream of DUX4L8 through the terminal DUX4 gene (RefSeq/Liftoff v5.3).
+chr4	193434059	193553139	D4Z4_4q35

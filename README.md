@@ -499,6 +499,9 @@ valid header-only VCFs rather than silently retaining every record.
 
 ## Execution
 
+For an opt-in scan of 21 candidate DUX4 partner loci on T2T-CHM13v2.0, see the
+[DUX4 rearrangement screen](docs/dux4-screen.md).
+
 ### Local Execution
 
 ```shell
