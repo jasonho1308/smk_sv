@@ -159,6 +159,8 @@ def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
     assert "chm13v2.0.partners.bed" in output and "chm13v2.0.sources.bed" in output
     assert "example.sorted.bam.csi" in output
     assert "example.junctions.tsv" in output
+    assert "--blast dux4/example/example.blast.tsv" in output
+    assert "--filtered-blast dux4/example/example.blast_filtered.tsv" in output
     assert "rule survivor_final:" not in output
     assert "run_dragen_dux4" not in output
     assert "download_dragen_dux4_hash_table" not in output

@@ -205,21 +205,23 @@ def scan_anchors(bam, partners, sources, args, query_path):
     return evidence, queries, counts
 
 
-def rescue_clips(reference, sources, queries, tmp, args):
+def blast_evidence(reference, sources, queries, tmp, args, *, filtered):
     if not queries:
         return []
     subject = tmp / "dux4.fa"
-    with subject.open("w") as handle:
-        for region in sources:
-            handle.write(f">{region.name}\n{reference.fetch(region.chrom, region.start, region.end)}\n")
     db = tmp / "dux4_db"
-    subprocess.run(["makeblastdb", "-dbtype", "nucl", "-in", str(subject), "-out", str(db)], check=True)
+    if not subject.exists():
+        with subject.open("w") as handle:
+            for region in sources:
+                handle.write(f">{region.name}\n{reference.fetch(region.chrom, region.start, region.end)}\n")
+        subprocess.run(["makeblastdb", "-dbtype", "nucl", "-in", str(subject), "-out", str(db)], check=True)
     hits = tmp / "hits.tsv"
     subprocess.run([
         "blastn", "-task", "blastn", "-db", str(db), "-query", str(tmp / "queries.fa"),
-        "-strand", "plus", "-dust", "no", "-evalue", "1e-8", "-perc_identity", str(args.min_identity),
+        "-strand", "plus", "-dust", "no", "-evalue", "1e-8",
         "-max_hsps", "100", "-num_threads", str(args.threads), "-out", str(hits),
         "-outfmt", "6 qseqid sseqid pident length qstart qend sstart send bitscore",
+        *(["-perc_identity", str(args.min_identity)] if filtered else []),
     ], check=True)
     by_name = {r.name: r for r in sources}
     best = {}
@@ -229,7 +231,7 @@ def rescue_clips(reference, sources, queries, tmp, args):
             idx = int(qid)
             anchor, qlen = queries[idx]
             length, qs, qe, ss, se = map(int, (length, qs, qe, ss, se))
-            if min(length, qe - qs + 1, abs(se - ss) + 1) < args.min_clip:
+            if filtered and min(length, qe - qs + 1, abs(se - ss) + 1) < args.min_clip:
                 continue
             if anchor.partner_side == "R":
                 gap, edge, subject_side = qs - 1, ss, "L" if ss <= se else "R"
@@ -237,7 +239,7 @@ def rescue_clips(reference, sources, queries, tmp, args):
                 gap, edge, subject_side = qlen - qe, se, "R" if ss <= se else "L"
             else:
                 gap, edge, subject_side = min(qs - 1, qlen - qe), None, "."
-            if gap > args.max_query_gap:
+            if filtered and gap > args.max_query_gap:
                 continue
             rank = (float(score), -gap, length)
             if idx not in best or rank > best[idx][0]:
@@ -248,6 +250,53 @@ def rescue_clips(reference, sources, queries, tmp, args):
                                     query_gap=gap, blast_identity=float(ident), blast_length=length)
                 best[idx] = (rank, evidence)
     return [hit for _, hit in best.values()]
+
+
+def all_softclip_hits(bam, reference, sources, tmp, args, *, batch_bases=2_000_000):
+    """Search full soft-clipped ends genome-wide without the partner screen's gates."""
+    queries = []
+    bases = total = 0
+    with (tmp / "queries.fa").open("w") as fasta:
+        for read in bam.fetch(until_eof=True):
+            ops = read.cigartuples
+            if read.is_unmapped or not ops:
+                continue
+            # CIGAR codes: S=4, H=5. A terminal S can sit inside a hard clip.
+            left = ops[1] if ops[0][0] == 5 and len(ops) > 1 else ops[0]
+            right = ops[-2] if ops[-1][0] == 5 and len(ops) > 1 else ops[-1]
+            if left[0] != 4 and right[0] != 4:
+                continue
+            seq = read.query_sequence
+            if not seq:
+                continue
+            for side, (op, n) in (("L", left), ("R", right)):
+                if op != 4:
+                    continue
+                clip = seq[:n] if side == "L" else seq[-n:]
+                cut = read.reference_start if side == "L" else read.reference_end
+                anchor = Anchor(".", read.query_name, read.reference_name, cut, side, read.mapping_quality)
+                fasta.write(f">{len(queries)}\n{clip}\n")
+                queries.append((anchor, len(clip)))
+                bases += len(clip)
+                total += 1
+                if bases >= batch_bases:
+                    fasta.flush()
+                    yield from blast_evidence(reference, sources, queries, tmp, args, filtered=False)
+                    fasta.seek(0)
+                    fasta.truncate()
+                    queries.clear()
+                    bases = 0
+        fasta.flush()
+        yield from blast_evidence(reference, sources, queries, tmp, args, filtered=False)
+    print(f"Genome-wide soft-clip BLAST queries: {total}", flush=True)
+
+
+def write_blast_report(path, hits):
+    anchor_fields = [f.name for f in fields(Anchor)]
+    evidence_fields = [f.name for f in fields(Evidence) if f.name != "anchor"]
+    write_table(path, (*anchor_fields, *evidence_fields),
+                ((*(getattr(h.anchor, name) for name in anchor_fields),
+                  *(getattr(h, name) for name in evidence_fields)) for h in hits))
 
 
 def write_table(path, header, rows):
@@ -327,7 +376,8 @@ def write_reports(partners, evidence, counts, args):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    for name in ("bam", "bam-index", "reference", "partners", "sources", "junctions", "reads", "loci"):
+    for name in ("bam", "bam-index", "reference", "partners", "sources", "junctions", "reads", "loci",
+                 "blast", "filtered-blast"):
         p.add_argument(f"--{name}", required=True)
     p.add_argument("--require-chm13", action="store_true")
     for name, default in (("threads", 4), ("padding", 10000), ("min-anchor", 200), ("min-mapq", 20),
@@ -352,8 +402,14 @@ def main():
                 p.error(f"Reference/BAM mismatch or out-of-bounds interval: {r.name} ({r.chrom})")
         tmp = Path(tmp)
         evidence, queries, counts = scan_anchors(bam, partners, sources, args, tmp / "queries.fa")
-        print(f"Scanned {len(partners)} loci; {len(evidence)} split observations; {len(queries)} BLAST queries", flush=True)
-        evidence.extend(rescue_clips(reference, sources, queries, tmp, args))
+        print(f"Scanned {len(partners)} loci; {len(evidence)} split observations; {len(queries)} filtered BLAST queries "
+              "(unresolved soft clips and insertions)", flush=True)
+        filtered_hits = blast_evidence(reference, sources, queries, tmp, args, filtered=True)
+        evidence.extend(filtered_hits)
+        write_blast_report(args.filtered_blast,
+                           (hit for hit in dict.fromkeys(filtered_hits) if hit.method == "softclip_blast"))
+        with pysam.AlignmentFile(args.bam, "rb") as all_reads:
+            write_blast_report(args.blast, all_softclip_hits(all_reads, reference, sources, tmp, args))
     write_reports(partners, evidence, counts, args)
 
 

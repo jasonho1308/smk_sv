@@ -42,13 +42,13 @@ class TestDux4Scan(unittest.TestCase):
             bam = folder / "sample.bam"
             header = {"HD": {"SO": "coordinate"}, "SQ": [{"SN": c, "LN": 2000} for c in ("chr4", "chr10", "chr14")]}
             with pysam.AlignmentFile(str(bam), "wb", header=header) as output:
-                def add(name, pos, cigar, seq, sa=None, flag=0):
+                def add(name, pos, cigar, seq, sa=None, flag=0, mapq=60):
                     record = pysam.AlignedSegment(output.header)
                     record.query_name = name
                     record.flag = flag
                     record.reference_id = 2
                     record.reference_start = pos
-                    record.mapping_quality = 60
+                    record.mapping_quality = mapq
                     record.cigarstring = cigar
                     record.query_sequence = seq
                     if sa:
@@ -72,9 +72,16 @@ class TestDux4Scan(unittest.TestCase):
                 add("linked", 1102, "650S250M", linked, flag=2048)
                 add("distant_clip", 1125, "250M650S", partner[1125:1375] + synth(250) + repeat)
                 add("ordinary", 1150, "300M", partner[1150:1450])
+                add("short_clip", 1200, "10H90S250M", repeat[:90] + partner[1200:1450])
+                add("tiny_clip", 1220, "250M5S", partner[1220:1470] + repeat[:5])
+                add("short_anchor", 1250, "75M400S", partner[1250:1325] + repeat)
+                add("low_mapq", 1300, "220M400S", partner[1300:1520] + repeat, mapq=0)
+                add("long_clip", 1310, "200M3600S", partner[1310:1510] + synth(3200) + repeat)
                 add("off_target", 1500, "250M400S", partner[1500:1750] + repeat)
+                add("outside_windows", 1640, "250M400S", partner[1640:1890] + repeat, flag=256)
             pysam.index("-c", str(bam))
-            reports = {n: folder / f"{n}.tsv" for n in ("junctions", "reads", "loci")}
+            reports = {n: folder / f"{n}.tsv" for n in ("junctions", "reads", "loci", "blast")}
+            reports["filtered-blast"] = folder / "blast_filtered.tsv"
             command = [sys.executable, str(SCRIPT), "--bam", str(bam), "--bam-index", f"{bam}.csi",
                        "--reference", str(reference), "--partners", str(panel), "--sources", str(sources),
                        "--padding", "0", "--threads", "1"]
@@ -110,6 +117,22 @@ class TestDux4Scan(unittest.TestCase):
             self.assertEqual((clip["source_chrom"], clip["source_status"]), ("chr4", "ambiguous"))
             reverse = next(r for r in read_rows if r["read"] == "reverse")
             self.assertEqual((reverse["source_side"], reverse["source_cut"], reverse["query_gap"]), ("R", "900", "0"))
+            broad = {(r["read"], r["partner_side"]): r for r in rows("blast")}
+            filtered = rows("filtered-blast")
+            self.assertCountEqual(filtered, [{k: v for k, v in r.items() if k != "junction_id"}
+                                             for r in read_rows if r["method"] == "softclip_blast"])
+            self.assertEqual(set(broad), {
+                ("split", "R"), ("reverse", "R"), ("left_clip", "L"), ("paired", "L"), ("paired", "R"),
+                ("linked", "L"), ("linked", "R"), ("flank", "R"), ("distant_clip", "R"), ("short_clip", "L"),
+                ("short_anchor", "R"), ("low_mapq", "R"), ("long_clip", "R"), ("off_target", "R"),
+                ("outside_windows", "R"),
+            })
+            self.assertEqual(broad["short_clip", "L"]["blast_length"], "90")
+            self.assertGreaterEqual(int(broad["long_clip", "R"]["query_gap"]), 3000)
+            self.assertEqual(broad["outside_windows", "R"]["partner_cut"], "1890")
+            self.assertTrue(all(r["partner"] == "." for r in broad.values()))
+            self.assertIn("Genome-wide soft-clip BLAST queries: 18", run.stdout)
+
             guarded = subprocess.run([*command, "--require-chm13"], capture_output=True, text=True)
             self.assertNotEqual(guarded.returncode, 0)
             self.assertIn("Expected the chr-prefixed T2T-CHM13v2.0", guarded.stderr)
