@@ -20,3 +20,35 @@ Files are relative to the configured run directory. The indexed partner windows 
 - `*.loci.tsv` lists each examined locus, the scan window, distinct high-quality anchor read names, and candidate counts, including zeros. Anchor counts are not local breakpoint coverage. At 15×, no candidates does not rule out a rearrangement, especially with low tumor purity, a breakpoint outside the windows, or poor mappability. A DNA junction does not by itself establish an expressed fusion.
 
 `logs/SAMPLE/dux4.log` records the split-evidence and BLAST query counts. Benchmark one sample on an existing indexed BAM before planning a larger run.
+
+## Optional DRAGEN v4.3 attempt
+
+The `dux4_dragen` target runs Illumina's [DUX4 Rearrangement Caller](https://help.dragen.illumina.com/dragen-v4.3/product-guide/dragen-v4.3/dragen-dna-pipeline/dux4-rearrangement-caller) separately. It does not change the `dux4` ONT screen, the default `all` target, or the SV consensus. Run it where licensed DRAGEN is available as `dragen` on `PATH`.
+
+For the default CHM13v2.0 pipeline BAM, no extra configuration is needed. The first `dux4_dragen` run downloads and extracts the [Illumina v4.3 CHM13_v2 v4 linear hash table](https://support.illumina.com/sequencing/sequencing_software/dragen-bio-it-platform/product_files.html) into `references/dragen/chm13_v2-linear-r4.0/` under the run directory. Later samples reuse it. The archive is about 14 GB; allow space for both the archive and the extracted files during installation. The default `all`, `resources`, and `dux4` targets do not download it. To prefetch without running DRAGEN:
+
+```bash
+snakemake -s workflow/Snakefile --use-conda --cores 1 download_dragen_dux4_hash_table
+```
+
+To use an already installed table instead, set `caller_settings.dragen_dux4.hash_table` in `config/config.yaml`. For an external BAM, set both `hash_table` and `bam_pattern`:
+
+```yaml
+  dragen_dux4:
+    hash_table: /path/to/dragen/hg38_hash_table
+    bam_pattern: /path/to/hg38/{sample}.sorted.markdup.bam
+    skip_sanity_check: true
+```
+
+The hash table must match the BAM's reference exactly. The caller primarily supports hg38. If your pipeline BAM was aligned to a custom reference, use a table built from that exact FASTA rather than the automatic download. Never pair a CHM13 BAM with an hg38 table. The rule passes an already aligned and sorted BAM to DRAGEN without remapping or marking duplicates. Use a duplicate-marked BAM when available, as in Illumina's example.
+
+`skip_sanity_check` defaults to `true`, using Illumina's documented `--dux4-skip-santiy-check` option, so this branch does not enforce a 25× cutoff. Illumina validated tumor-only, paired-end WGS at 25–120× mean coverage, with 100–151 bp reads and 300–500 bp fragments. At ~15×, ONT reads, lack of paired-end evidence, and CHM13 all fall outside the documented setup. The bypass does not make these inputs supported; DRAGEN may still reject them. A VCF with no calls does not rule out a rearrangement. Set the option to `false` to keep DRAGEN's checks enabled.
+
+```bash
+# One sample first (add -n to preview; --use-conda is for any upstream ONT alignment).
+snakemake -s workflow/Snakefile --use-conda --cores 4 dux4_dragen/SAMPLE/attempt.json
+# All configured samples, one DRAGEN job at a time on a single DRAGEN host.
+snakemake -s workflow/Snakefile --use-conda --cores 4 dux4_dragen --resources dragen_slots=1
+```
+
+Check `dux4_dragen/SAMPLE/attempt.json` for `vcf_written`, `no_vcf`, `failed`, or `not_started`. `vcf_written` means a VCF file exists, not that a rearrangement was found. DRAGEN outputs are under `dux4_dragen/SAMPLE/dragen/` and its log is `logs/SAMPLE/dux4_dragen.log`. Failed invocations record status and a warning without publishing a partial or placeholder VCF. After fixing a recorded failure, rerun the sample with `--force`.

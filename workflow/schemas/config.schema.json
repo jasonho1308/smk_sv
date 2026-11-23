@@ -217,6 +217,29 @@
                     ],
                     "additionalProperties": false
                 },
+                "dragen_dux4": {
+                    "type": "object",
+                    "properties": {
+                        "hash_table": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Existing DRAGEN hash-table directory for the exact input BAM reference. If omitted, use the bundled CHM13v2.0 download for the pipeline BAM."
+                        },
+                        "bam_pattern": {
+                            "type": "string",
+                            "pattern": "[{]sample[}]",
+                            "description": "External tumor BAM path with a {sample} placeholder. If omitted, reuse the pipeline alignment."
+                        },
+                        "skip_sanity_check": {
+                            "type": "boolean",
+                            "description": "Pass the DRAGEN v4.3 experimental requirements bypass (defaults to true)."
+                        }
+                    },
+                    "dependentRequired": {
+                        "bam_pattern": ["hash_table"]
+                    },
+                    "additionalProperties": false
+                },
                 "clair3": {
                     "type": "object",
                     "properties": {
@@ -474,6 +497,9 @@
                     "$ref": "#/$defs/resourceDownloadByAssembly"
                 },
                 "clair3_model": {
+                    "$ref": "#/$defs/resourceDownload"
+                },
+                "dragen_dux4_hash_table": {
                     "$ref": "#/$defs/resourceDownload"
                 },
                 "svision_model": {

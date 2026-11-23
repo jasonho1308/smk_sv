@@ -82,6 +82,7 @@ def install_archive(
     archive_type: str,
     archive_root: str | None = None,
     checksum: str | None = None,
+    required_files: tuple[str, ...] = (),
 ) -> None:
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -103,8 +104,11 @@ def install_archive(
             raise ValueError(f"Unsupported archive type: {archive_type}")
 
         source = unpacked / archive_root if archive_root else unpacked
-        if not source.exists():
-            raise ValueError(f"Expected archive path was not found: {archive_root}")
+        if not source.is_dir():
+            raise ValueError(f"Expected archive directory was not found: {archive_root}")
+        missing = [name for name in required_files if not (source / name).is_file()]
+        if missing:
+            raise ValueError(f"Required file(s) missing from archive: {', '.join(missing)}")
 
         staged = Path(temporary_directory) / "installed"
         os.replace(source, staged)
@@ -122,4 +126,5 @@ if __name__ == "__main__":
         archive_type=snakemake.params.archive_type,  # type: ignore[name-defined]
         archive_root=snakemake.params.archive_root,  # type: ignore[name-defined]
         checksum=snakemake.params.checksum,  # type: ignore[name-defined]
+        required_files=getattr(snakemake.params, "required_files", ()),  # type: ignore[name-defined]
     )

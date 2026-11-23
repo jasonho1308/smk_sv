@@ -89,6 +89,12 @@ annotation:
     cache: /doc/tool/annotator/annotsv
 
 caller_settings:
+  # dux4_dragen downloads the DRAGEN v4.3 CHM13v2.0 linear hash table on demand.
+  # Optional override: use a preinstalled matching hash table (see docs/dux4-screen.md).
+  # dragen_dux4:
+  #   hash_table: /path/to/dragen/hg38_hash_table
+  #   bam_pattern: /path/to/hg38/{sample}.sorted.markdup.bam
+  #   skip_sanity_check: true
   tandem_repeats: /doc/reference/T2T-CHM13v2.0/chm13.bed
   nvtr: /doc/reference/T2T-CHM13v2.0/chm13.bed
   nanosv:

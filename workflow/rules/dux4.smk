@@ -1,4 +1,5 @@
-# Opt-in screen; independent of the normal multi-caller SV consensus.
+# Opt-in DUX4 branches; independent of the normal multi-caller SV consensus.
+from snakemake.exceptions import WorkflowError
 
 rule dux4:
     input:
@@ -32,4 +33,36 @@ rule scan_dux4:
             --partners {input.partners:q} --sources {input.sources:q} \
             --junctions {output.junctions:q} --reads {output.reads:q} --loci {output.loci:q} \
             --threads {threads} > {log:q} 2>&1
+        """
+
+
+rule dux4_dragen:
+    input:
+        expand("dux4_dragen/{sample}/attempt.json", sample=SAMPLES),
+
+
+def dragen_dux4_bam(wildcards):
+    pattern = config["dragen_dux4"].get("bam_pattern", rules.minimap2.output.bam)
+    return pattern.replace("{sample}", wildcards.sample)
+
+
+rule run_dragen_dux4:
+    input:
+        hash_table=config["dragen_dux4"]["hash_table"],
+        bam=dragen_dux4_bam,
+        runner=workflow.source_path("../scripts/run_dragen_dux4.py"),
+    output:
+        status="dux4_dragen/{sample}/attempt.json",
+        results=directory("dux4_dragen/{sample}/dragen"),
+    params:
+        bypass="--skip-sanity-check" if config["dragen_dux4"].get("skip_sanity_check", True) else "",
+    resources:
+        dragen_slots=1,
+    log:
+        "logs/{sample}/dux4_dragen.log",
+    shell:
+        """
+        python3 {input.runner:q} --sample {wildcards.sample:q} --bam {input.bam:q} \
+            --hash-table {input.hash_table:q} --status {output.status:q} \
+            --results {output.results:q} --log {log:q} {params.bypass}
         """

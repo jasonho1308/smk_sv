@@ -91,6 +91,27 @@ if config["bed_nanosv"]:
             "../scripts/download_resource.py"
 
 
+# Standalone download; not part of the default resources or final SV targets.
+rule download_dragen_dux4_hash_table:
+    conda:
+        "../envs/resources.yaml"
+    output:
+        hash_table=directory("references/dragen/chm13_v2-linear-r4.0"),
+    params:
+        url=get_resource_config("dragen_dux4_hash_table").get(
+            "url",
+            "https://webdata.illumina.com/downloads/software/dragen/resource-files/misc/"
+            "chm13_v2-cnv.hla.methylated_combined.rna-10-r4.0-1.tar.gz",
+        ),
+        checksum=get_resource_config("dragen_dux4_hash_table").get("checksum", ""),
+        archive_type="tar",
+        archive_root=get_resource_config("dragen_dux4_hash_table").get("archive_root", ""),
+        required_files=("hash_table.cfg.bin", "reference.bin"),
+        destination=lambda wildcards, output: str(output.hash_table),
+    script:
+        "../scripts/install_archive.py"
+
+
 rule download_clair3_model:
     conda:
         "../envs/resources.yaml"

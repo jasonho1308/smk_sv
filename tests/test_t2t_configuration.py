@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 from unittest.mock import patch
 
 import jsonschema
@@ -128,6 +129,7 @@ def test_resources_dry_run_uses_t2t_and_pytorch(project):
     assert "download_snpeff_genes" in output
     assert "pytorch/r941_prom_sup_g5014" in output
     assert "GRCh38.primary_assembly" not in output
+    assert "download_dragen_dux4_hash_table" not in output
 
 
 def test_full_analysis_dry_run_builds_t2t_dag(project):
@@ -138,6 +140,8 @@ def test_full_analysis_dry_run_builds_t2t_dag(project):
     assert "rule clair3:" in output
     assert "rule severus:" in output
     assert "rule survivor_final:" in output
+    assert "run_dragen_dux4" not in output
+    assert "download_dragen_dux4_hash_table" not in output
     assert "CHM13" in output
     assert "--gff" in output
     # VEP's literal --offline flag implies a cache; custom GFF mode uses neither.
@@ -156,6 +160,139 @@ def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
     assert "example.sorted.bam.csi" in output
     assert "example.junctions.tsv" in output
     assert "rule survivor_final:" not in output
+    assert "run_dragen_dux4" not in output
+    assert "download_dragen_dux4_hash_table" not in output
+
+
+def configure_dragen(project, **settings):
+    path, config = project
+    hash_table = path / "DRAGEN hash table"
+    hash_table.mkdir()
+    config["caller_settings"]["dragen_dux4"] = {"hash_table": str(hash_table), **settings}
+    (path / "config/config.yaml").write_text(yaml.safe_dump(config))
+
+
+def test_dragen_dux4_external_bam_requires_matching_hash_table():
+    config = template()
+    config["caller_settings"]["dragen_dux4"] = {"bam_pattern": "/data/{sample}.bam"}
+    schema = json.loads((ROOT / "workflow/schemas/config.schema.json").read_text())
+    with pytest.raises(jsonschema.ValidationError, match="hash_table.*dependency"):
+        jsonschema.validate(config, schema)
+
+
+def test_dragen_dux4_uses_pipeline_bam_and_downloads_hash_table_by_default(project):
+    proc = run_snakemake(project, "dux4_dragen", "--dry-run", "--printshellcmds")
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "rule minimap2:" in output
+    assert "rule download_dragen_dux4_hash_table:" in output
+    assert "--hash-table references/dragen/chm13_v2-linear-r4.0" in output
+    assert "--bam minimap2/example/example.sorted.bam" in output
+    assert "--skip-sanity-check" in output
+    assert "rule survivor_final:" not in output and "rule scan_dux4:" not in output
+
+
+@pytest.mark.skipif(not shutil.which("curl"), reason="requires curl")
+@pytest.mark.parametrize("valid", [True, False])
+def test_dragen_hash_table_download_and_cache(project, valid):
+    import tarfile
+
+    # The standalone target remains available even when no caller would use it.
+    configure_dragen(project)
+    path, config = project
+    config["annotation"]["genome"] = "hg38"
+    source = path / "source"
+    source.mkdir()
+    filenames = ["hash_table.cfg.bin", "reference.bin"] if valid else ["hash_table.cfg.bin"]
+    for name in filenames:
+        (source / name).write_bytes(b"fixture")
+    archive = path / "dragen.tar.gz"
+    with tarfile.open(archive, "w:gz") as handle:
+        handle.add(source, arcname=".")
+    config["resources"]["downloads"]["dragen_dux4_hash_table"] = {"url": archive.as_uri()}
+    (path / "config/config.yaml").write_text(yaml.safe_dump(config))
+
+    target = "download_dragen_dux4_hash_table"
+    proc = run_snakemake(project, target)
+    output = proc.stdout + proc.stderr
+    installed = Path(config["run"]["dir"]) / "references/dragen/chm13_v2-linear-r4.0"
+    if not valid:
+        assert proc.returncode != 0
+        assert "Required file(s) missing from archive: reference.bin" in output
+        assert not installed.exists()
+        return
+    assert proc.returncode == 0, output
+    assert all((installed / name).read_bytes() == b"fixture" for name in filenames)
+    archive.unlink()
+    cached = run_snakemake(project, target)
+    assert cached.returncode == 0, cached.stdout + cached.stderr
+    assert "Nothing to be done" in cached.stdout + cached.stderr
+
+
+@pytest.mark.parametrize("mode, outcome, exit_code", [
+    ("success", "vcf_written", 0),
+    ("empty", "no_vcf", 0),
+    ("reject", "failed", 12),
+])
+def test_dragen_dux4_external_bam_attempt(project, monkeypatch, mode, outcome, exit_code):
+    path, config = project
+    bam = path / "data/example tumor.bam"
+    bam.touch()
+    bypass = mode == "success"
+    configure_dragen(project, bam_pattern=str(path / "data/{sample} tumor.bam"), skip_sanity_check=bypass)
+    tools = path / "tools"
+    tools.mkdir()
+    stub = tools / "dragen"
+    stub.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "import os, sys\n"
+        "out = next(arg.split('=', 1)[1] for arg in sys.argv if arg.startswith('--output-dir='))\n"
+        "mode = os.environ['DRAGEN_TEST_MODE']\n"
+        "if mode != 'empty':\n"
+        "    (Path(out) / 'example.dux4.vcf').write_text('##fileformat=VCFv4.2\\n')\n"
+        "if mode == 'reject':\n"
+        "    print('fixture rejects input')\n"
+        "    sys.exit(12)\n"
+    )
+    stub.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tools}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("DRAGEN_TEST_MODE", mode)
+    proc = run_snakemake(project, "dux4_dragen/example/attempt.json")
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "rule minimap2:" not in output
+    assert "download_dragen_dux4_hash_table" not in output
+    run_dir = Path(config["run"]["dir"])
+    attempt = run_dir / "dux4_dragen/example"
+    vcfs = ["dragen/example.dux4.vcf"] if mode == "success" else []
+    assert json.loads((attempt / "attempt.json").read_text()) == {
+        "outcome": outcome, "exit_code": exit_code, "skip_sanity_check": bypass, "vcfs": vcfs,
+    }
+    assert sorted(str(vcf.relative_to(attempt)) for vcf in (attempt / "dragen").glob("*.vcf")) == vcfs
+    log = (run_dir / "logs/example/dux4_dragen.log").read_text()
+    assert "--enable-dux4-caller=true" in log
+    assert f"--tumor-bam-input '{bam}'" in log
+    assert ("--dux4-skip-santiy-check true" in log) == bypass
+    if mode == "reject":
+        assert "fixture rejects input" in log
+
+
+def test_dragen_dux4_missing_binary_records_not_started(tmp_path):
+    status = tmp_path / "attempt.json"
+    log = tmp_path / "dux4_dragen.log"
+    results = tmp_path / "dragen"
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "workflow/scripts/run_dragen_dux4.py"),
+         "--sample", "example", "--bam", str(tmp_path / "fixture.bam"),
+         "--hash-table", str(tmp_path), "--status", str(status),
+         "--log", str(log), "--results", str(results)],
+        env={**os.environ, "PATH": str(tmp_path)}, capture_output=True, text=True, timeout=10,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert json.loads(status.read_text())["outcome"] == "not_started"
+    assert "Could not start DRAGEN" in log.read_text()
+    assert results.is_dir() and not list(results.iterdir())
 
 
 def test_clair3_rejects_existing_tensorflow_model(project):
