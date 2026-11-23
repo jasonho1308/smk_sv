@@ -4,11 +4,13 @@ Use this opt-in screen for ONT DNA reads after minimap2 alignment. It reports ju
 
 ```bash
 # All configured samples (add -n to preview)
-snakemake -s workflow/Snakefile --use-conda --cores 4 dux4
+snakemake -s workflow/Snakefile --use-conda --cores 16 dux4
 
 # Just one sample (replace SAMPLE with a PEP sample_name)
-snakemake -s workflow/Snakefile --use-conda --cores 4 dux4/SAMPLE/SAMPLE.junctions.tsv
+snakemake -s workflow/Snakefile --use-conda --cores 16 dux4/SAMPLE/SAMPLE.junctions.tsv
 ```
+
+`scan_dux4` requests up to 16 threads per sample and passes the allocation to `blastn`. `--cores` sets the total CPU budget for a local run; Snakemake scales jobs down if the budget is smaller. To benchmark a different per-sample allocation, use `--set-threads scan_dux4=N` with `--cores` at least `N`.
 
 Files are relative to the configured run directory. The indexed partner windows are the [21 BED intervals](../workflow/resources/dux4/chm13v2.0.partners.bed) plus 10 kb of padding on each side. The table uses the pipeline's pinned [RefSeq/Liftoff v5.3](https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_RefSeq_Liftoff_v5.3.gff.gz), including the full annotated IGH locus. LINC02193 is absent from that file; its chr16 primary interval comes from the pinned [GENCODEv35 CAT/Liftoff annotation](https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/annotation/chm13v2.0_GENCODEv35_CAT_Liftoff.vep.gff3.gz). Its CAT alternate contig placement on chr2 is not included. The [D4Z4 target](../workflow/resources/dux4/chm13v2.0.sources.bed) is **chr4q35 only**, from 2 kb upstream of DUX4L8 through the annotated terminal DUX4 gene. The chr10q26 D4Z4 array is not searched as a source, but all chr10 partner loci remain in the scan.
 

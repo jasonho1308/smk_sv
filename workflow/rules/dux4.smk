@@ -25,7 +25,7 @@ rule scan_dux4:
         loci="dux4/{sample}/{sample}.loci.tsv",
         blast="dux4/{sample}/{sample}.blast.tsv",
         filtered_blast="dux4/{sample}/{sample}.blast_filtered.tsv",
-    threads: 4
+    threads: 16
     resources:
         mem_mb=2048,
     log:

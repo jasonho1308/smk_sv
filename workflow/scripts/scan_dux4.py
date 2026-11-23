@@ -380,7 +380,7 @@ def main():
                  "blast", "filtered-blast"):
         p.add_argument(f"--{name}", required=True)
     p.add_argument("--require-chm13", action="store_true")
-    for name, default in (("threads", 4), ("padding", 10000), ("min-anchor", 200), ("min-mapq", 20),
+    for name, default in (("threads", 16), ("padding", 10000), ("min-anchor", 200), ("min-mapq", 20),
                           ("min-clip", 100), ("max-clip", 3000), ("max-query-gap", 100),
                           ("source-flank", 5000), ("min-flank", 250), ("cluster-bp", 100), ("min-reads", 2)):
         p.add_argument(f"--{name}", type=int, default=default)

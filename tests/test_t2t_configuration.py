@@ -104,12 +104,12 @@ def project(tmp_path):
     return tmp_path, config
 
 
-def run_snakemake(project, *args):
+def run_snakemake(project, *args, cores=1):
     path, _ = project
     executable = shutil.which("snakemake")
     assert executable, "Install Snakemake to run the workflow regression checks"
     return subprocess.run(
-        [executable, "--snakefile", "workflow/Snakefile", "--workflow-profile", "none", "--cores", "1", *args],
+        [executable, "--snakefile", "workflow/Snakefile", "--workflow-profile", "none", "--cores", str(cores), *args],
         cwd=path, capture_output=True, text=True, timeout=90,
     )
 
@@ -152,7 +152,7 @@ def test_full_analysis_dry_run_builds_t2t_dag(project):
 
 
 def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
-    proc = run_snakemake(project, "dux4", "--dry-run", "--printshellcmds")
+    proc = run_snakemake(project, "dux4", "--dry-run", "--printshellcmds", cores=16)
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
     assert "rule scan_dux4:" in output
@@ -161,6 +161,7 @@ def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
     assert "example.junctions.tsv" in output
     assert "--blast dux4/example/example.blast.tsv" in output
     assert "--filtered-blast dux4/example/example.blast_filtered.tsv" in output
+    assert "--threads 16 > logs/example/dux4.log" in output
     assert "rule survivor_final:" not in output
     assert "run_dragen_dux4" not in output
     assert "download_dragen_dux4_hash_table" not in output
