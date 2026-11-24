@@ -2,7 +2,7 @@
 from snakemake.exceptions import WorkflowError
 
 DUX4_ASM = config["dux4_local_assembly"]
-DUX4_ASM_DIR = "results/local_asm/{sample}"
+DUX4_ASM_DIR = "dux4/local_asm/{sample}"
 DUX4_ASM_REF = DUX4_ASM.get("ref", config["fasta"])
 DUX4_ASM_PLATFORM = DUX4_ASM.get("platform", "ont")
 DUX4_ASM_CONTAINER = DUX4_ASM.get("container", "docker://condaforge/miniforge3:25.3.1-0")
