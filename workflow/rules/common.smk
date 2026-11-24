@@ -41,7 +41,6 @@ config = {
     "config_nanosv": config["caller_settings"]["nanosv"]["config"],
     "bed_nanosv": config["caller_settings"]["nanosv"].get("bed"),
     "model_clair3": config["caller_settings"]["clair3"]["model"],
-    "dragen_dux4": config["caller_settings"].get("dragen_dux4", {}),
     "dux4_local_assembly": config["caller_settings"].get("dux4_local_assembly", {}),
     "model_svision": config["caller_settings"]["svision"]["model"],
     "resource_downloads": config["resources"]["downloads"],

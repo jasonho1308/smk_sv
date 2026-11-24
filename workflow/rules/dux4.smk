@@ -1,10 +1,12 @@
 # Opt-in DUX4 branches; independent of the normal multi-caller SV consensus.
+include: "dux4_local_assembly.smk"
+
+
 rule dux4:
     input:
         expand("dux4/{sample}/{sample}.junctions.tsv", sample=SAMPLES),
         expand("dux4/{sample}/{sample}.blast.tsv", sample=SAMPLES),
         expand("dux4/{sample}/{sample}.blast_filtered.tsv", sample=SAMPLES),
-        dux4_asm_targets() if DUX4_ASM.get("enabled", False) else [],
 
 
 rule scan_dux4:
@@ -40,41 +42,13 @@ rule scan_dux4:
         """
 
 
-rule dux4_dragen:
+# Manual target: run both Conda branches for one suspected sample.
+rule dux4_followup:
     input:
-        expand("dux4_dragen/{sample}/attempt.json", sample=SAMPLES),
-
-
-def dragen_dux4_bam(wildcards):
-    pattern = config["dragen_dux4"].get("bam_pattern", rules.minimap2.output.bam)
-    return pattern.replace("{sample}", wildcards.sample)
-
-
-def dragen_dux4_hash_table(wildcards):
-    if "hash_table" in config["dragen_dux4"]:
-        return config["dragen_dux4"]["hash_table"]
-    if config["genome"] != "CHM13":
-        raise WorkflowError("Set caller_settings.dragen_dux4.hash_table for non-CHM13 references")
-    return str(rules.download_dragen_dux4_hash_table.output.hash_table)
-
-
-rule run_dragen_dux4:
-    input:
-        hash_table=dragen_dux4_hash_table,
-        bam=dragen_dux4_bam,
-        runner=workflow.source_path("../scripts/run_dragen_dux4.py"),
+        rules.scan_dux4.output,
+        rules.local_assemble_dux4.output,
+        rules.align_contigs_to_ref.output,
     output:
-        status="dux4_dragen/{sample}/attempt.json",
-        results=directory("dux4_dragen/{sample}/dragen"),
-    params:
-        bypass="--skip-sanity-check" if config["dragen_dux4"].get("skip_sanity_check", True) else "",
-    resources:
-        dragen_slots=1,
-    log:
-        "logs/{sample}/dux4_dragen.log",
+        manifest="dux4/{sample}/dux4_files.txt",
     shell:
-        """
-        python3 {input.runner:q} --sample {wildcards.sample:q} --bam {input.bam:q} \
-            --hash-table {input.hash_table:q} --status {output.status:q} \
-            --results {output.results:q} --log {log:q} {params.bypass}
-        """
+        "printf '%s\\n' {input:q} > {output.manifest:q}"

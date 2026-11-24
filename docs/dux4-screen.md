@@ -28,18 +28,29 @@ Files are relative to the configured run directory. The indexed partner windows 
 
 Both files use the same chr4q35 target and BLAST E-value cutoff (1e-8). Clips with no qualifying hit are not listed. The genome-wide search does not change the junction, read, or locus reports. `logs/SAMPLE/dux4.log` records split evidence and query counts for both searches. Benchmark one sample on an existing indexed BAM before planning a larger run.
 
-## Optional local assembly of DUX4 partners
+## Run the screen and assembly together
 
-`dux4_local_assembly` is separate from the read-level screen and the genome-wide SV consensus. It accepts HiFi or ONT WGS aligned to a **coordinate-sorted, indexed BAM**. The default input is the workflow's minimap2 BAM/CSI; CHM13v2.0 defaults include the [chr4q35 and chr10q26 D4Z4 arrays](../workflow/resources/dux4/chm13v2.0.assembly_sources.bed) and **all 21 [partner loci](../workflow/resources/dux4/chm13v2.0.partners.bed)**, not just IGH. The read-level `scan_dux4` still uses a chr4-only source as described above.
+Request one `dux4_files.txt` per suspected sample (use the PEP `sample_name`). This runs the CHM13 read-level screen, both soft-clip BLAST reports, and local assembly, then lists the report and contig file paths relative to `run.dir`. No config sample list is needed, and the `all` and `dux4` targets are unchanged.
 
 ```bash
-# All configured samples, or one sample (replace SAMPLE with the PEP sample_name)
-snakemake -s workflow/Snakefile --software-deployment-method conda --cores 12 dux4_local_assembly
-snakemake -s workflow/Snakefile --software-deployment-method conda --cores 12 \
-  results/local_asm/SAMPLE/breakpoints.tsv
+snakemake -s workflow/Snakefile --use-conda --cores 16 \
+  dux4/SAMPLE/dux4_files.txt
 ```
 
-To add local assembly to the `dux4` aggregate target, set `enabled: true` under `caller_settings.dux4_local_assembly`. This does not change the default `all` target. For an external GRCh38 BAM, target `dux4_local_assembly` directly; the read-level screen is CHM13-only. Example in `config/config.yaml`:
+Pass multiple `dux4_files.txt` paths to run several samples. For GRCh38 inputs, request local assembly alone as below; the read-level screen requires CHM13v2.0.
+
+## Optional local assembly of DUX4 partners
+
+Local assembly is a follow-up for suspected DUX4 rearrangements. It accepts HiFi or ONT WGS aligned to a **coordinate-sorted, indexed BAM**. The default input is the workflow's minimap2 BAM/CSI; CHM13v2.0 defaults include the [chr4q35 and chr10q26 D4Z4 arrays](../workflow/resources/dux4/chm13v2.0.assembly_sources.bed) and **all 21 [partner loci](../workflow/resources/dux4/chm13v2.0.partners.bed)**, not just IGH. The read-level `scan_dux4` still uses a chr4-only source as described above.
+
+Run assembly manually by requesting the breakpoint report for a suspected sample. Replace `SAMPLE` with its PEP `sample_name`, or pass several report paths to follow up on several samples. Neither `dux4` nor `all` runs local assembly, and no sample list is needed in `config/config.yaml`.
+
+```bash
+snakemake -s workflow/Snakefile --software-deployment-method conda --cores 12 \
+  dux4/local_asm/SAMPLE/breakpoints.tsv
+```
+
+No additional assembly settings are needed for the default CHM13v2.0 ONT pipeline input. For HiFi or an external BAM/reference, use the same per-sample target with these optional assembly settings:
 
 ```yaml
 caller_settings:  # merge into existing settings
@@ -55,42 +66,10 @@ caller_settings:  # merge into existing settings
     partner_padding: 10000  # bp; set to 0 for exact BED windows
 ```
 
-Both regions files must be BED4 (`chrom`, `start`, `end`, `locus_name`; 0-based, end-exclusive); the names are printed in the reports. Supply both files for GRCh38 or other custom FASTAs. Use exact reference coordinates and contig names matching the BAM, include both D4Z4 arrays where represented, and list any partners of interest (IGH is not required). Choose these windows independently for each assembly rather than reusing the CHM13 coordinates. Paths are relative to the configured run directory unless absolute. An alternate FASTA is indexed by the branch; use an uncompressed FASTA. For containerized Conda on Linux, use `--software-deployment-method conda apptainer`; `container` can override the default Miniforge image. For container-only runs, supply an image with Python, samtools, minimap2 and the selected assembler (plus awk for HiFi).
+Both regions files must be BED4 (`chrom`, `start`, `end`, `locus_name`; 0-based, end-exclusive); the names are printed in the reports. Supply both files for GRCh38 or other custom FASTAs. Use exact reference coordinates and contig names matching the BAM, include both D4Z4 arrays where represented, and list any partners of interest (IGH is not required). Choose these windows independently for each assembly rather than reusing the CHM13 coordinates. Paths are relative to the configured run directory unless absolute. An alternate FASTA is indexed by the branch; use an uncompressed FASTA. This branch uses Conda environments and does not require Docker or Apptainer.
 
 - **Extraction:** `samtools view` recruits read names from primary or supplementary alignments with a mapped footprint overlapping a target, including records with soft clips. A second pass over the whole BAM retrieves complete records even if the primary is off-target. Exactly one full sequence per read name is retained in `target_reads.fastq.gz`, with the original strand and quality order restored. Hard-clipped records are never exported; if the BAM has no full record for a selected read, it is omitted and counted in `extraction_stats.tsv`. Missing qualities use `!` and are counted. Breakpoint reads with no mapped segment overlapping any window will not be recruited.
 - **Assembly:** HiFi uses hifiasm primary contigs without duplicate purging; ONT uses Flye `--meta --keep-haplotypes` for uneven coverage. Neither assembler guarantees recovery of low-VAF haplotypes. By default, fewer than `min_reads: 3` reads of `min_read_length: 1000` bp skips assembly; this is a minimum input check, not a coverage or VAF estimate. `assembly_status.tsv` distinguishes `no_reads`, `insufficient_reads`, `no_contigs`, and `assembled`. No contigs produces an empty `contigs.fa`, a valid indexed header-only BAM, and zero breakpoint rows. Unexpected tool errors still fail the job.
 - **Evidence:** Load `contigs_aligned.bam` and `.bai` in IGV or Ribbon, and optionally load `breakpoints.bed` as a review track. `breakpoints.tsv` lists paired cut positions (0-based between-base), contig query spans in original orientation, strands, and MAPQs. A candidate must have neighboring primary/supplementary segments at a D4Z4 source and a configured partner, with at least `min_anchor_bases: 100` aligned bp inside each window and the junction-facing edge inside the window (or on its boundary). The partner needs `min_partner_mapq: 20`; D4Z4 may have low MAPQ. `max_query_gap: 1000` and `max_query_overlap: 100` define the allowed separation on the contig. The BED marks one aligned base beside each cut, grouped by candidate ID. Inspect the underlying reads to verify support: a split contig may be chimeric or ambiguous in repeats, and a D4Z4 placement does not prove chr4 vs. chr10 donor origin. No candidate does not rule out a rearrangement.
 
-Outputs are under `results/local_asm/SAMPLE/`. Rule logs are in `logs/SAMPLE/`, and per-rule benchmarks are in `benchmarks/SAMPLE/`.
-
-## Optional DRAGEN v4.3 attempt
-
-The `dux4_dragen` target runs Illumina's [DUX4 Rearrangement Caller](https://help.dragen.illumina.com/dragen-v4.3/product-guide/dragen-v4.3/dragen-dna-pipeline/dux4-rearrangement-caller) separately. It does not change the `dux4` ONT screen, the default `all` target, or the SV consensus. Run it where licensed DRAGEN is available as `dragen` on `PATH`.
-
-For the default CHM13v2.0 pipeline BAM, no extra configuration is needed. The first `dux4_dragen` run downloads and extracts the [Illumina v4.3 CHM13_v2 v4 linear hash table](https://support.illumina.com/sequencing/sequencing_software/dragen-bio-it-platform/product_files.html) into `references/dragen/chm13_v2-linear-r4.0/` under the run directory. Later samples reuse it. The archive is about 14 GB; allow space for both the archive and the extracted files during installation. The default `all`, `resources`, and `dux4` targets do not download it. To prefetch without running DRAGEN:
-
-```bash
-snakemake -s workflow/Snakefile --use-conda --cores 1 download_dragen_dux4_hash_table
-```
-
-To use an already installed table instead, set `caller_settings.dragen_dux4.hash_table` in `config/config.yaml`. For an external BAM, set both `hash_table` and `bam_pattern`:
-
-```yaml
-  dragen_dux4:
-    hash_table: /path/to/dragen/hg38_hash_table
-    bam_pattern: /path/to/hg38/{sample}.sorted.markdup.bam
-    skip_sanity_check: true
-```
-
-The hash table must match the BAM's reference exactly. The caller primarily supports hg38. If your pipeline BAM was aligned to a custom reference, use a table built from that exact FASTA rather than the automatic download. Never pair a CHM13 BAM with an hg38 table. The rule passes an already aligned and sorted BAM to DRAGEN without remapping or marking duplicates. Use a duplicate-marked BAM when available, as in Illumina's example.
-
-`skip_sanity_check` defaults to `true`, using Illumina's documented `--dux4-skip-santiy-check` option, so this branch does not enforce a 25× cutoff. Illumina validated tumor-only, paired-end WGS at 25–120× mean coverage, with 100–151 bp reads and 300–500 bp fragments. At ~15×, ONT reads, lack of paired-end evidence, and CHM13 all fall outside the documented setup. The bypass does not make these inputs supported; DRAGEN may still reject them. A VCF with no calls does not rule out a rearrangement. Set the option to `false` to keep DRAGEN's checks enabled.
-
-```bash
-# One sample first (add -n to preview; --use-conda is for any upstream ONT alignment).
-snakemake -s workflow/Snakefile --use-conda --cores 4 dux4_dragen/SAMPLE/attempt.json
-# All configured samples, one DRAGEN job at a time on a single DRAGEN host.
-snakemake -s workflow/Snakefile --use-conda --cores 4 dux4_dragen --resources dragen_slots=1
-```
-
-Check `dux4_dragen/SAMPLE/attempt.json` for `vcf_written`, `no_vcf`, `failed`, or `not_started`. `vcf_written` means a VCF file exists, not that a rearrangement was found. DRAGEN outputs are under `dux4_dragen/SAMPLE/dragen/` and its log is `logs/SAMPLE/dux4_dragen.log`. Failed invocations record status and a warning without publishing a partial or placeholder VCF. After fixing a recorded failure, rerun the sample with `--force`.
+Sample outputs are under `dux4/local_asm/SAMPLE/`, relative to `run.dir`. Rule logs are in `logs/SAMPLE/`, and per-rule benchmarks are in `benchmarks/SAMPLE/`.

@@ -503,10 +503,8 @@ For an opt-in scan of 21 candidate DUX4 partner loci on T2T-CHM13v2.0, see the
 [DUX4 rearrangement screen](docs/dux4-screen.md). The optional
 [local assembly branch](docs/dux4-screen.md#optional-local-assembly-of-dux4-partners)
 accepts HiFi or ONT BAMs and checks split contigs at configured DUX4 partner loci,
-not just IGH. A separate
-[experimental DRAGEN DUX4 target](docs/dux4-screen.md#optional-dragen-v43-attempt)
-downloads the CHM13v2.0 hash table on demand and can attempt calling below 25×
-without contributing to the SV consensus.
+not just IGH. [Run both DUX4 analyses together](docs/dux4-screen.md#run-the-screen-and-assembly-together)
+for a suspected sample without adding them to the SV consensus.
 
 ### Local Execution
 

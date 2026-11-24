@@ -1,11 +1,10 @@
-# Optional local assembly, independent of the read-level screen and SV consensus.
+# Manual DUX4 follow-up: request dux4/local_asm/<sample>/breakpoints.tsv.
 from snakemake.exceptions import WorkflowError
 
 DUX4_ASM = config["dux4_local_assembly"]
 DUX4_ASM_DIR = "dux4/local_asm/{sample}"
 DUX4_ASM_REF = DUX4_ASM.get("ref", config["fasta"])
 DUX4_ASM_PLATFORM = DUX4_ASM.get("platform", "ont")
-DUX4_ASM_CONTAINER = DUX4_ASM.get("container", "docker://condaforge/miniforge3:25.3.1-0")
 DUX4_ASM_REGIONS = DUX4_ASM.get("regions", {})
 
 
@@ -39,17 +38,6 @@ def dux4_asm_bam_index(wildcards):
     return DUX4_ASM.get("bam_index_pattern", bam + ".bai").replace("{sample}", wildcards.sample)
 
 
-def dux4_asm_targets():
-    return expand(DUX4_ASM_DIR + "/{product}", sample=SAMPLES,
-                  product=["assembly_status.tsv", "contigs_aligned.bam", "contigs_aligned.bam.bai",
-                           "breakpoints.tsv", "breakpoints.bed"])
-
-
-rule dux4_local_assembly:
-    input:
-        dux4_asm_targets(),
-
-
 rule index_dux4_local_reference:
     input:
         ref=DUX4_ASM_REF,
@@ -65,8 +53,6 @@ rule index_dux4_local_reference:
         "benchmarks/dux4_local_reference.tsv"
     conda:
         "../envs/dux4_assembly_io.yaml"
-    container:
-        DUX4_ASM_CONTAINER
     shell:
         "samtools faidx --fai-idx {output.fai:q} {input.ref:q} > {log:q} 2>&1"
 
@@ -95,8 +81,6 @@ rule extract_dux4_igh_reads:
         "benchmarks/{sample}/dux4_local_extract.tsv"
     conda:
         "../envs/dux4_assembly_io.yaml"
-    container:
-        DUX4_ASM_CONTAINER
     shell:
         """
         python {input.helper:q} extract --bam {input.bam:q} --index {input.index:q} \
@@ -128,8 +112,6 @@ rule local_assemble_dux4:
         "benchmarks/{sample}/dux4_local_assemble.tsv"
     conda:
         "../envs/dux4_assembly_" + DUX4_ASM_PLATFORM + ".yaml"
-    container:
-        DUX4_ASM_CONTAINER
     shell:
         """
         python {input.helper:q} assemble --fastq {input.reads:q} \
@@ -169,8 +151,6 @@ rule align_contigs_to_ref:
         "benchmarks/{sample}/dux4_local_align.tsv"
     conda:
         "../envs/dux4_assembly_io.yaml"
-    container:
-        DUX4_ASM_CONTAINER
     shell:
         """
         python {input.helper:q} align --contigs {input.contigs:q} --ref {input.ref:q} \

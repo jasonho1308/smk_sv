@@ -89,10 +89,9 @@ annotation:
     cache: /doc/tool/annotator/annotsv
 
 caller_settings:
-  # Optional dux4_local_assembly target: CHM13v2.0 defaults include chr4/chr10 D4Z4
-  # and all 21 partner loci. The existing minimap2 BAM/CSI are reused by default.
+  # Manual DUX4 follow-up: target dux4/local_asm/SAMPLE/breakpoints.tsv.
+  # CHM13v2.0 defaults use both D4Z4 arrays, all 21 partners and the existing BAM/CSI.
   # dux4_local_assembly:
-  #   enabled: false   # true also adds local assembly to the dux4 target
   #   platform: ont    # or hifi
   #   ont_mode: nano-hq  # or nano-raw for older ONT reads
   #   bam_pattern: 'results/aligned/{sample}.bam'  # omit to reuse the pipeline BAM
@@ -103,12 +102,6 @@ caller_settings:
   #     partners: /path/to/partners.bed
   #   partner_padding: 10000
 
-  # dux4_dragen downloads the DRAGEN v4.3 CHM13v2.0 linear hash table on demand.
-  # Optional override: use a preinstalled matching hash table (see docs/dux4-screen.md).
-  # dragen_dux4:
-  #   hash_table: /path/to/dragen/hg38_hash_table
-  #   bam_pattern: /path/to/hg38/{sample}.sorted.markdup.bam
-  #   skip_sanity_check: true
   tandem_repeats: /doc/reference/T2T-CHM13v2.0/chm13.bed
   nvtr: /doc/reference/T2T-CHM13v2.0/chm13.bed
   nanosv:
