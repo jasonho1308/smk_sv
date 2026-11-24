@@ -140,6 +140,10 @@ def test_full_analysis_dry_run_builds_t2t_dag(project):
     assert "rule clair3:" in output
     assert "rule severus:" in output
     assert "rule survivor_final:" in output
+    assert output.count("rule annotate_breakpoints:") == 5
+    genes = project[1]["annotation"]["snpeff"]["build"]["genes"]
+    assert f"input: survivor/example/final/example.BND.merged.vcf, {genes}" in output
+    assert "output: survivor/example/final/example.BND.breakpoints.tsv" in output
     assert "run_dragen_dux4" not in output
     assert "download_dragen_dux4_hash_table" not in output
     assert "CHM13" in output
@@ -149,6 +153,30 @@ def test_full_analysis_dry_run_builds_t2t_dag(project):
     assert "--cache_version" not in output
     assert "--filter_common" not in output
     assert "GRCh38.primary_assembly" not in output
+
+
+def test_run_final_breakpoint_annotation(project):
+    _, config = project
+    genes = Path(config["annotation"]["snpeff"]["build"]["genes"])
+    genes.parent.mkdir(exist_ok=True)
+    genes.write_text("chr2\tref\tpseudogene\t20\t20\t.\t+\t.\tID=gene-1;gene=MATE;Name=OTHER\n")
+    final_dir = Path(config["run"]["dir"]) / "survivor/example/final"
+    final_dir.mkdir(parents=True)
+    (final_dir / "example.BND.merged.vcf").write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\tbnd\tN\tN[chr2:20[\t.\tPASS\tSVTYPE=BND\n"
+    )
+    proc = run_snakemake(
+        project, "survivor/example/final/example.BND.breakpoints.tsv",
+        "--allowed-rules", "annotate_breakpoints",
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (final_dir / "example.BND.breakpoints.tsv").read_text().splitlines() == [
+        "record_id\tchrom\tposition\tbreakend\tgene_names",
+        "bnd\tchr1\t10\tleft\tintergenic",
+        "bnd\tchr2\t20\tright\tMATE",
+    ]
 
 
 def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):

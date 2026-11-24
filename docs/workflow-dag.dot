@@ -85,8 +85,12 @@ digraph workflow {
                     label="survivor_final — per sample × type\ngather all filtered caller VCFs\nminimum support = n_callers[type_sv] - 1 = 2"];
     final_vcfs [shape=note, fillcolor="#dcfce7", color="#16a34a",
                 label="survivor/{sample}/final/{sample}.{type_sv}.merged.vcf\nFive final consensus VCFs per sample"];
+    annotate_breakpoints [fillcolor="#ede9fe", color="#7c3aed",
+                          label="annotate_breakpoints\noverlap breakends with existing gene models"];
+    breakpoint_tables [shape=note, fillcolor="#dcfce7", color="#16a34a",
+                       label="survivor/{sample}/final/{sample}.{type_sv}.breakpoints.tsv"];
     all [shape=oval, fillcolor="#dcfce7", color="#16a34a",
-         label="all\nall samples × five SV types"];
+         label="all\nconsensus VCFs and breakpoint tables"];
 
     fastq -> minimap2;
     minimap2 -> {cutesv sniffles svim clair3 svision};
@@ -108,6 +112,7 @@ digraph workflow {
     {restore_annotsv_length convert_vep convert_snpeff} -> filter_annotations;
     filter_annotations -> survivor_final [label="all callers, same sample / type"];
     survivor_final -> final_vcfs -> all;
+    final_vcfs -> annotate_breakpoints -> breakpoint_tables -> all;
 
     // Shared-resource dependencies; not optional analysis branches.
     edge [style=dashed, color="#94a3b8"];
@@ -122,6 +127,7 @@ digraph workflow {
     prepare_vep_annotation -> vep;
     {download_reference faidx download_snpeff_genes} -> build_snpeff_cache;
     build_snpeff_cache -> snpeff;
+    download_snpeff_genes -> annotate_breakpoints;
     {download_annotsv_human download_annotsv_exomiser} -> annotsv;
     {download_reference minimap2_index faidx download_tandem_repeats
      download_clair3_model download_svision_model prepare_vep_annotation

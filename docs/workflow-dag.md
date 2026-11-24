@@ -73,7 +73,9 @@ flowchart TD
 
     survivor_final["survivor_final — per sample × SV type<br/>gather annotation-filtered caller VCFs<br/>minimum support: n_callers[type_sv] - 1"]
     FINAL[/"survivor/{sample}/final/{sample}.{type_sv}.merged.vcf<br/>DEL · DUP · INV · BND · INS"/]
-    all["all<br/>requires all five final VCFs for every sample"]
+    annotate_breakpoints["annotate_breakpoints<br/>overlap breakends with existing gene models"]
+    BREAKPOINTS[/"survivor/{sample}/final/{sample}.{type_sv}.breakpoints.tsv"/]
+    all["all<br/>requires final VCFs and breakpoint tables for every sample and SV type"]
 
     FASTQ --> minimap2
     MMI --> minimap2
@@ -114,6 +116,7 @@ flowchart TD
 
     filter_annotations -->|"all callers, same sample and SV type"| survivor_final
     survivor_final --> FINAL --> all
+    FINAL --> annotate_breakpoints --> BREAKPOINTS --> all
 
     classDef input fill:#e2e8f0,stroke:#64748b,color:#0f172a;
     classDef caller fill:#dbeafe,stroke:#2563eb,color:#0f172a;
@@ -123,13 +126,13 @@ flowchart TD
     class FASTQ,MMI input;
     class cutesv,sniffles,svim,clair3,severus,format_severus,svision,format_svision caller;
     class minimap2,duphold,hard_filter,separate_types process;
-    class vep,snpeff,annotsv,restore_annotsv_length,extract_annotations,convert_vep,convert_snpeff,filter_annotations annotation;
-    class survivor,survivor_final,FINAL,all consensus;
+    class vep,snpeff,annotsv,restore_annotsv_length,extract_annotations,convert_vep,convert_snpeff,filter_annotations,annotate_breakpoints annotation;
+    class survivor,survivor_final,FINAL,BREAKPOINTS,all consensus;
 ```
 
 ### Important dependency details
 
-1. **Annotation is caller-specific, not annotation of the merged VCF.** `vep`,
+1. **Consequence annotation before merging is caller-specific.** `vep`,
    `snpeff`, and `annotsv` all consume `{caller}/{sample}/{caller}.{type_sv}.vcf`.
    They can run concurrently with the first `survivor` job. `extract_annotations`
    waits for that consensus and the VEP/SnpEff outputs, then subsets caller VCFs
@@ -149,8 +152,9 @@ flowchart TD
    `estimate_distance`. The distance setting should therefore not be described
    simply as a fixed 10-bp window.
 6. **There is no separate somatic/germline classification output in this DAG.**
-   The final targets are annotation-filtered consensus SV VCFs. Tumor-only input
-   and annotation filtering do not establish somatic status on their own.
+   The final targets are annotation-filtered consensus SV VCFs and their
+   breakpoint gene tables. Tumor-only input and annotation filtering do not
+   establish somatic status on their own.
 
 ## 2. Shared resource DAG
 
@@ -247,6 +251,7 @@ Paths below are relative to `run.dir`, except configured input/cache paths.
 | Annotation conversion | `convert_vep`, `convert_snpeff` | `{caller}/{sample}/merged/{caller}.{type_sv}.{vep.maf,snpeff.tsv}` |
 | Annotation filtering | `filter_annotations` | `{caller}/{sample}/merged/filtered/{caller}.{type_sv}.{vcf,vep.vcf,snpeff.vcf,tsv,RData}` |
 | Final consensus | `survivor_final` | `survivor/{sample}/final/{sample}.{type_sv}.merged.vcf` |
+| Breakpoint genes | `annotate_breakpoints` | `survivor/{sample}/final/{sample}.{type_sv}.breakpoints.tsv` |
 
 Brace suffix lists in this table are shorthand, not literal filenames.
 

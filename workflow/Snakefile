@@ -35,3 +35,8 @@ include: "rules/filtration/convert_annotations.smk"
 include: "rules/filtration/restore_annotsv_length.smk"
 include: "rules/filtration/filter_annotations.smk"
 include: "rules/filtration/survivor_final.smk"
+
+
+# Keep standalone cache targets available when no SnpEff build is configured.
+if config["snpeff_build"]:
+    include: "rules/annotator/annotate_breakpoints.smk"

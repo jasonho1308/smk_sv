@@ -22,6 +22,12 @@ def get_targets(wildcards=None):
         for type_sv in TYPES_SV
     ]
 
+    targets += expand(
+        "survivor/{sample}/final/{sample}.{type_sv}.breakpoints.tsv",
+        sample=list(SAMPLES),
+        type_sv=TYPES_SV,
+    )
+
     return targets
 
 
