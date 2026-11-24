@@ -217,6 +217,35 @@
                     ],
                     "additionalProperties": false
                 },
+                "dux4_local_assembly": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {"type": "boolean", "description": "Also run local assembly when targeting dux4."},
+                        "ref": {"type": "string", "minLength": 1},
+                        "platform": {"enum": ["ont", "hifi"]},
+                        "ont_mode": {"enum": ["nano-hq", "nano-raw"]},
+                        "bam_pattern": {"type": "string", "pattern": "[{]sample[}]"},
+                        "bam_index_pattern": {"type": "string", "pattern": "[{]sample[}]"},
+                        "regions": {
+                            "type": "object",
+                            "properties": {
+                                "sources": {"type": "string", "minLength": 1, "description": "FASTA-matched DUX4/D4Z4 BED4."},
+                                "partners": {"type": "string", "minLength": 1, "description": "FASTA-matched partner BED4 (IGH is optional)."}
+                            },
+                            "additionalProperties": false
+                        },
+                        "partner_padding": {"type": "integer", "minimum": 0},
+                        "min_reads": {"type": "integer", "minimum": 1},
+                        "min_read_length": {"type": "integer", "minimum": 1},
+                        "min_anchor_bases": {"type": "integer", "minimum": 1},
+                        "min_partner_mapq": {"type": "integer", "minimum": 0, "maximum": 254},
+                        "max_query_gap": {"type": "integer", "minimum": 0},
+                        "max_query_overlap": {"type": "integer", "minimum": 0},
+                        "container": {"type": "string", "minLength": 1}
+                    },
+                    "dependentRequired": {"bam_index_pattern": ["bam_pattern"]},
+                    "additionalProperties": false
+                },
                 "dragen_dux4": {
                     "type": "object",
                     "properties": {

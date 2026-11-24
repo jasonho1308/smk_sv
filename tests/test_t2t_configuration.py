@@ -156,6 +156,7 @@ def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
     assert "rule scan_dux4:" in output
+    assert "rule local_assemble_dux4:" not in output
     assert "chm13v2.0.partners.bed" in output and "chm13v2.0.sources.bed" in output
     assert "example.sorted.bam.csi" in output
     assert "example.junctions.tsv" in output
@@ -165,6 +166,63 @@ def test_dux4_target_uses_indexed_t2t_alignment_without_consensus(project):
     assert "rule survivor_final:" not in output
     assert "run_dragen_dux4" not in output
     assert "download_dragen_dux4_hash_table" not in output
+
+
+def test_dux4_assembly_reuses_pipeline_alignment_and_is_optional(project):
+    proc = run_snakemake(project, "dux4_local_assembly", "--dry-run", "--printshellcmds")
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "rule extract_dux4_igh_reads:" in output
+    assert "example.sorted.bam.csi" in output
+    assert "chm13v2.0.assembly_sources.bed" in output and "chm13v2.0.partners.bed" in output
+    assert "--platform ont" in output and "--preset asm20" in output
+    assert "rule scan_dux4:" not in output and "rule survivor_final:" not in output
+    path, config = project
+    config["caller_settings"]["dux4_local_assembly"] = {"enabled": True}
+    (path / "config/config.yaml").write_text(yaml.safe_dump(config))
+    proc = run_snakemake(project, "dux4", "--dry-run")
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "rule scan_dux4:" in output and "rule local_assemble_dux4:" in output
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_dux4_assembly_uses_external_bam_and_custom_regions(project, dry_run):
+    if not dry_run and not shutil.which("samtools"):
+        pytest.skip("requires samtools")
+    path, config = project
+    run_dir = Path(config["run"]["dir"])
+    aligned = run_dir / "results/aligned"
+    aligned.mkdir(parents=True)
+    ref = path / "external GRCh38.fa"
+    ref.write_text(">chr10\n" + "A" * 1000 + "\n>chr12\n" + "T" * 1000 + "\n")
+    sources, partners = path / "custom sources.bed", path / "custom partners.bed"
+    sources.write_text("chr10\t100\t200\tD4Z4_10q26\n")
+    partners.write_text("chr12\t100\t200\tETV6\n")
+    config["caller_settings"]["dux4_local_assembly"] = {
+        "platform": "hifi", "ref": str(ref), "bam_pattern": "results/aligned/{sample}.bam",
+        "regions": {"sources": str(sources), "partners": str(partners)},
+    }
+    (path / "config/config.yaml").write_text(yaml.safe_dump(config))
+    bam = aligned / "example.bam"
+    if dry_run:
+        bam.touch()
+        bam.with_suffix(".bam.bai").touch()
+    else:
+        subprocess.run(["samtools", "view", "-b", "-o", bam, "-"], check=True, text=True,
+                       input="@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:chr10\tLN:1000\n@SQ\tSN:chr12\tLN:1000\n")
+        subprocess.run(["samtools", "index", bam], check=True)
+    proc = run_snakemake(project, "dux4_local_assembly", "--printshellcmds", *(["--dry-run"] if dry_run else []))
+    output = proc.stdout + proc.stderr
+    assert proc.returncode == 0, output
+    assert "--platform hifi" in output and "--preset asm5" in output
+    assert "rule minimap2:" not in output and "rule scan_dux4:" not in output
+    if not dry_run:
+        local = run_dir / "results/local_asm/example"
+        assert "status\tno_reads" in (local / "assembly_status.tsv").read_text()
+        assert (local / "breakpoints.bed").stat().st_size == 0
+        assert (local / "contigs_aligned.bam.bai").stat().st_size > 0
+        assert (run_dir / "benchmarks/example/dux4_local_align.tsv").stat().st_size > 0
 
 
 def configure_dragen(project, **settings):

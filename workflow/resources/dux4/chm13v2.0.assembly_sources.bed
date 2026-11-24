@@ -1,0 +1,3 @@
+# T2T-CHM13v2.0; BED coordinates (0-based, end-exclusive).
+# D4Z4 array spans from https://pmc.ncbi.nlm.nih.gov/articles/PMC13199055/ (Methods).
+chr4	193282465	193558261	D4Z4_4q35

@@ -1,11 +1,10 @@
 # Opt-in DUX4 branches; independent of the normal multi-caller SV consensus.
-from snakemake.exceptions import WorkflowError
-
 rule dux4:
     input:
         expand("dux4/{sample}/{sample}.junctions.tsv", sample=SAMPLES),
         expand("dux4/{sample}/{sample}.blast.tsv", sample=SAMPLES),
         expand("dux4/{sample}/{sample}.blast_filtered.tsv", sample=SAMPLES),
+        dux4_asm_targets() if DUX4_ASM.get("enabled", False) else [],
 
 
 rule scan_dux4:
