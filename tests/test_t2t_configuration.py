@@ -225,7 +225,7 @@ def test_dux4_followup_lists_existing_outputs(project):
 
 
 def test_dux4_assembly_runs_only_for_requested_sample_with_default_alignment(project):
-    path, _ = project
+    path, config = project
     (path / "config/pep/samples.csv").write_text("sample_name\nexample\nunselected\n")
     (path / "data/unselected.fq.gz").touch()
     proc = run_snakemake(project, "dux4/local_asm/example/breakpoints.tsv", "--dry-run", "--printshellcmds")
@@ -233,6 +233,8 @@ def test_dux4_assembly_runs_only_for_requested_sample_with_default_alignment(pro
     assert proc.returncode == 0, output
     assert "rule extract_dux4_igh_reads:" in output
     assert "example.sorted.bam.csi" in output
+    assert "rule faidx:" in output
+    assert f"--fai {config['inputs']['fasta']}.fai" in output
     assert "chm13v2.0.assembly_sources.bed" in output and "chm13v2.0.partners.bed" in output
     assert "--platform ont" in output and "--preset asm20" in output
     assert "--summary dux4/local_asm/example/breakpoints.tsv" in output
@@ -241,21 +243,24 @@ def test_dux4_assembly_runs_only_for_requested_sample_with_default_alignment(pro
 
 
 @pytest.mark.parametrize("dry_run", [True, False])
-def test_dux4_assembly_uses_external_bam_and_custom_regions(project, dry_run):
+def test_dux4_assembly_uses_external_bam_and_reuses_workflow_index(project, dry_run):
     if not dry_run and not shutil.which("samtools"):
         pytest.skip("requires samtools")
     path, config = project
     run_dir = Path(config["run"]["dir"])
     aligned = run_dir / "results/aligned"
     aligned.mkdir(parents=True)
-    ref = path / "external GRCh38.fa"
+    ref = Path(config["inputs"]["fasta"])
+    ref.parent.mkdir(parents=True)
     ref.write_text(">chr10\n" + "A" * 1000 + "\n>chr12\n" + "T" * 1000 + "\n")
-    sources, partners = path / "custom sources.bed", path / "custom partners.bed"
-    sources.write_text("chr10\t100\t200\tD4Z4_10q26\n")
-    partners.write_text("chr12\t100\t200\tETV6\n")
+    fai = Path(f"{ref}.fai")
+    fai.write_text("chr10\t1000\t7\t1000\t1001\nchr12\t1000\t1015\t1000\t1001\n")
+    # Use small intervals that fit the synthetic reference at the workflow's fixed BED paths.
+    beds = path / "workflow/resources/dux4"
+    (beds / "chm13v2.0.assembly_sources.bed").write_text("chr10\t100\t200\tD4Z4_10q26\n")
+    (beds / "chm13v2.0.partners.bed").write_text("chr12\t100\t200\tETV6\n")
     config["caller_settings"]["dux4_local_assembly"] = {
-        "platform": "hifi", "ref": str(ref), "bam_pattern": "results/aligned/{sample}.bam",
-        "regions": {"sources": str(sources), "partners": str(partners)},
+        "bam_pattern": "results/aligned/{sample}.bam",
     }
     (path / "config/config.yaml").write_text(yaml.safe_dump(config))
     bam = aligned / "example.bam"
@@ -270,7 +275,9 @@ def test_dux4_assembly_uses_external_bam_and_custom_regions(project, dry_run):
                          *(["--dry-run"] if dry_run else []))
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, output
-    assert "--platform hifi" in output and "--preset asm5" in output
+    assert "--platform ont" in output and "--preset asm20" in output
+    assert f"--ref {ref}" in output and f"--fai {fai}" in output
+    assert "samtools faidx" not in output
     assert "rule minimap2:" not in output and "rule scan_dux4:" not in output
     if not dry_run:
         local = run_dir / "dux4/local_asm/example"

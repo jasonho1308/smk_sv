@@ -37,11 +37,11 @@ snakemake -s workflow/Snakefile --use-conda --cores 16 \
   dux4/SAMPLE/dux4_files.txt
 ```
 
-Pass multiple `dux4_files.txt` paths to run several samples. For GRCh38 inputs, request local assembly alone as below; the read-level screen requires CHM13v2.0.
+Pass multiple `dux4_files.txt` paths to run several samples.
 
 ## Optional local assembly of DUX4 partners
 
-Local assembly is a follow-up for suspected DUX4 rearrangements. It accepts HiFi or ONT WGS aligned to a **coordinate-sorted, indexed BAM**. The default input is the workflow's minimap2 BAM/CSI; CHM13v2.0 defaults include the [chr4q35 and chr10q26 D4Z4 arrays](../workflow/resources/dux4/chm13v2.0.assembly_sources.bed) and **all 21 [partner loci](../workflow/resources/dux4/chm13v2.0.partners.bed)**, not just IGH. The read-level `scan_dux4` still uses a chr4-only source as described above.
+Local assembly is a follow-up for suspected DUX4 rearrangements in ONT WGS. The default input is the workflow's coordinate-sorted minimap2 BAM/CSI. Assembly uses `inputs.fasta` and reuses its shared `.fai`; the workflow's `faidx` rule creates the index if needed. The rules take the bundled CHM13v2.0 BEDs directly as inputs, covering the [chr4q35 and chr10q26 D4Z4 arrays](../workflow/resources/dux4/chm13v2.0.assembly_sources.bed) and **all 21 [partner loci](../workflow/resources/dux4/chm13v2.0.partners.bed)**, not just IGH. The read-level `scan_dux4` still uses a chr4-only source as described above.
 
 Run assembly manually by requesting the breakpoint report for a suspected sample. Replace `SAMPLE` with its PEP `sample_name`, or pass several report paths to follow up on several samples. Neither `dux4` nor `all` runs local assembly, and no sample list is needed in `config/config.yaml`.
 
@@ -50,26 +50,21 @@ snakemake -s workflow/Snakefile --software-deployment-method conda --cores 12 \
   dux4/local_asm/SAMPLE/breakpoints.tsv
 ```
 
-No additional assembly settings are needed for the default CHM13v2.0 ONT pipeline input. For HiFi or an external BAM/reference, use the same per-sample target with these optional assembly settings:
+No additional assembly settings are needed for the default CHM13v2.0 ONT pipeline input. To use an external ONT BAM or tune assembly, use the same per-sample target with these optional settings:
 
 ```yaml
 caller_settings:  # merge into existing settings
   dux4_local_assembly:
-    platform: hifi      # or ont (default)
     ont_mode: nano-hq   # or nano-raw for older ONT data
     bam_pattern: 'results/aligned/{sample}.bam'
     bam_index_pattern: 'results/aligned/{sample}.bam.bai'  # optional; can also point to CSI
-    ref: /reference/GRCh38.fa  # omit to reuse inputs.fasta
-    regions:
-      sources: /reference/GRCh38.d4z4.bed
-      partners: /reference/GRCh38.partners.bed
     partner_padding: 10000  # bp; set to 0 for exact BED windows
 ```
 
-Both regions files must be BED4 (`chrom`, `start`, `end`, `locus_name`; 0-based, end-exclusive); the names are printed in the reports. Supply both files for GRCh38 or other custom FASTAs. Use exact reference coordinates and contig names matching the BAM, include both D4Z4 arrays where represented, and list any partners of interest (IGH is not required). Choose these windows independently for each assembly rather than reusing the CHM13 coordinates. Paths are relative to the configured run directory unless absolute. An alternate FASTA is indexed by the branch; use an uncompressed FASTA. This branch uses Conda environments and does not require Docker or Apptainer.
+External BAMs must be coordinate-sorted, indexed, and aligned to the workflow FASTA, which must match the bundled CHM13v2.0 BEDs. Paths are relative to the configured run directory unless absolute. This branch uses Conda environments and does not require Docker or Apptainer.
 
 - **Extraction:** `samtools view` recruits read names from primary or supplementary alignments with a mapped footprint overlapping a target, including records with soft clips. A second pass over the whole BAM retrieves complete records even if the primary is off-target. Exactly one full sequence per read name is retained in `target_reads.fastq.gz`, with the original strand and quality order restored. Hard-clipped records are never exported; if the BAM has no full record for a selected read, it is omitted and counted in `extraction_stats.tsv`. Missing qualities use `!` and are counted. Breakpoint reads with no mapped segment overlapping any window will not be recruited.
-- **Assembly:** HiFi uses hifiasm primary contigs without duplicate purging; ONT uses Flye `--meta --keep-haplotypes` for uneven coverage. Neither assembler guarantees recovery of low-VAF haplotypes. By default, fewer than `min_reads: 3` reads of `min_read_length: 1000` bp skips assembly; this is a minimum input check, not a coverage or VAF estimate. `assembly_status.tsv` distinguishes `no_reads`, `insufficient_reads`, `no_contigs`, and `assembled`. No contigs produces an empty `contigs.fa`, a valid indexed header-only BAM, and zero breakpoint rows. Unexpected tool errors still fail the job.
+- **Assembly:** Flye uses `--meta --keep-haplotypes` for uneven coverage but does not guarantee recovery of low-VAF haplotypes. By default, fewer than `min_reads: 3` reads of `min_read_length: 1000` bp skips assembly; this is a minimum input check, not a coverage or VAF estimate. `assembly_status.tsv` distinguishes `no_reads`, `insufficient_reads`, `no_contigs`, and `assembled`. No contigs produces an empty `contigs.fa`, a valid indexed header-only BAM, and zero breakpoint rows. Unexpected tool errors still fail the job.
 - **Evidence:** Load `contigs_aligned.bam` and `.bai` in IGV or Ribbon, and optionally load `breakpoints.bed` as a review track. `breakpoints.tsv` lists paired cut positions (0-based between-base), contig query spans in original orientation, strands, and MAPQs. A candidate must have neighboring primary/supplementary segments at a D4Z4 source and a configured partner, with at least `min_anchor_bases: 100` aligned bp inside each window and the junction-facing edge inside the window (or on its boundary). The partner needs `min_partner_mapq: 20`; D4Z4 may have low MAPQ. `max_query_gap: 1000` and `max_query_overlap: 100` define the allowed separation on the contig. The BED marks one aligned base beside each cut, grouped by candidate ID. Inspect the underlying reads to verify support: a split contig may be chimeric or ambiguous in repeats, and a D4Z4 placement does not prove chr4 vs. chr10 donor origin. No candidate does not rule out a rearrangement.
 
 Sample outputs are under `dux4/local_asm/SAMPLE/`, relative to `run.dir`. Rule logs are in `logs/SAMPLE/`, and per-rule benchmarks are in `benchmarks/SAMPLE/`.

@@ -1,29 +1,6 @@
 # Manual DUX4 follow-up: request dux4/local_asm/<sample>/breakpoints.tsv.
-from snakemake.exceptions import WorkflowError
-
 DUX4_ASM = config["dux4_local_assembly"]
 DUX4_ASM_DIR = "dux4/local_asm/{sample}"
-DUX4_ASM_REF = DUX4_ASM.get("ref", config["fasta"])
-DUX4_ASM_PLATFORM = DUX4_ASM.get("platform", "ont")
-DUX4_ASM_REGIONS = DUX4_ASM.get("regions", {})
-
-
-def dux4_asm_fai(wildcards):
-    if DUX4_ASM_REF == config["fasta"]:
-        return rules.faidx.output.fai
-    return rules.index_dux4_local_reference.output.fai
-
-
-def dux4_asm_region(kind):
-    def resolve(wildcards):
-        if kind in DUX4_ASM_REGIONS:
-            return DUX4_ASM_REGIONS[kind]
-        if config["genome"] != "CHM13" or DUX4_ASM_REF != config["fasta"]:
-            raise WorkflowError("Set caller_settings.dux4_local_assembly.regions.sources and .partners "
-                                "for references other than the workflow's CHM13v2.0 FASTA")
-        resource = {"sources": "chm13v2.0.assembly_sources.bed", "partners": "chm13v2.0.partners.bed"}
-        return workflow.source_path("../resources/dux4/" + resource[kind])
-    return resolve
 
 
 def dux4_asm_bam(wildcards):
@@ -38,33 +15,14 @@ def dux4_asm_bam_index(wildcards):
     return DUX4_ASM.get("bam_index_pattern", bam + ".bai").replace("{sample}", wildcards.sample)
 
 
-rule index_dux4_local_reference:
-    input:
-        ref=DUX4_ASM_REF,
-    output:
-        fai="results/local_asm/reference.fai",
-    threads: 1
-    resources:
-        mem_mb=512,
-        disk_mb=256,
-    log:
-        "logs/dux4_local_reference.log",
-    benchmark:
-        "benchmarks/dux4_local_reference.tsv"
-    conda:
-        "../envs/dux4_assembly_io.yaml"
-    shell:
-        "samtools faidx --fai-idx {output.fai:q} {input.ref:q} > {log:q} 2>&1"
-
-
 rule extract_dux4_igh_reads:
     # Historical rule name: collects reads at all configured partners, not just IGH.
     input:
         bam=dux4_asm_bam,
         index=dux4_asm_bam_index,
-        fai=dux4_asm_fai,
-        sources=dux4_asm_region("sources"),
-        partners=dux4_asm_region("partners"),
+        fai=rules.faidx.output.fai,
+        sources=workflow.source_path("../resources/dux4/chm13v2.0.assembly_sources.bed"),
+        partners=workflow.source_path("../resources/dux4/chm13v2.0.partners.bed"),
         helper=workflow.source_path("../scripts/dux4_local_assembly.py"),
     output:
         reads=DUX4_ASM_DIR + "/target_reads.fastq.gz",
@@ -98,7 +56,6 @@ rule local_assemble_dux4:
         contigs=DUX4_ASM_DIR + "/contigs.fa",
         status=DUX4_ASM_DIR + "/assembly_status.tsv",
     params:
-        platform=DUX4_ASM_PLATFORM,
         ont_mode=DUX4_ASM.get("ont_mode", "nano-hq"),
         min_reads=DUX4_ASM.get("min_reads", 3),
         min_read_length=DUX4_ASM.get("min_read_length", 1000),
@@ -111,11 +68,11 @@ rule local_assemble_dux4:
     benchmark:
         "benchmarks/{sample}/dux4_local_assemble.tsv"
     conda:
-        "../envs/dux4_assembly_" + DUX4_ASM_PLATFORM + ".yaml"
+        "../envs/dux4_assembly_ont.yaml"
     shell:
         """
         python {input.helper:q} assemble --fastq {input.reads:q} \
-            --platform {params.platform:q} --ont-mode {params.ont_mode:q} --threads {threads} \
+            --platform ont --ont-mode {params.ont_mode:q} --threads {threads} \
             --min-reads {params.min_reads} --min-read-length {params.min_read_length} \
             --contigs {output.contigs:q} --status {output.status:q} > {log:q} 2>&1
         """
@@ -124,10 +81,10 @@ rule local_assemble_dux4:
 rule align_contigs_to_ref:
     input:
         contigs=rules.local_assemble_dux4.output.contigs,
-        ref=DUX4_ASM_REF,
-        fai=dux4_asm_fai,
-        sources=dux4_asm_region("sources"),
-        partners=dux4_asm_region("partners"),
+        ref=config["fasta"],
+        fai=rules.faidx.output.fai,
+        sources=workflow.source_path("../resources/dux4/chm13v2.0.assembly_sources.bed"),
+        partners=workflow.source_path("../resources/dux4/chm13v2.0.partners.bed"),
         helper=workflow.source_path("../scripts/dux4_local_assembly.py"),
     output:
         bam=DUX4_ASM_DIR + "/contigs_aligned.bam",
@@ -135,7 +92,6 @@ rule align_contigs_to_ref:
         summary=DUX4_ASM_DIR + "/breakpoints.tsv",
         bed=DUX4_ASM_DIR + "/breakpoints.bed",
     params:
-        preset="asm5" if DUX4_ASM_PLATFORM == "hifi" else "asm20",
         padding=DUX4_ASM.get("partner_padding", 10000),
         anchor=DUX4_ASM.get("min_anchor_bases", 100),
         mapq=DUX4_ASM.get("min_partner_mapq", 20),
@@ -155,7 +111,7 @@ rule align_contigs_to_ref:
         """
         python {input.helper:q} align --contigs {input.contigs:q} --ref {input.ref:q} \
             --fai {input.fai:q} --sources {input.sources:q} --partners {input.partners:q} \
-            --partner-padding {params.padding} --threads {threads} --preset {params.preset:q} \
+            --partner-padding {params.padding} --threads {threads} --preset asm20 \
             --min-anchor-bases {params.anchor} --min-partner-mapq {params.mapq} \
             --max-query-gap {params.gap} --max-query-overlap {params.overlap} \
             --bam {output.bam:q} --index {output.bai:q} \

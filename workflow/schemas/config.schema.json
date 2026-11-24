@@ -220,19 +220,9 @@
                 "dux4_local_assembly": {
                     "type": "object",
                     "properties": {
-                        "ref": {"type": "string", "minLength": 1},
-                        "platform": {"enum": ["ont", "hifi"]},
                         "ont_mode": {"enum": ["nano-hq", "nano-raw"]},
                         "bam_pattern": {"type": "string", "pattern": "[{]sample[}]"},
                         "bam_index_pattern": {"type": "string", "pattern": "[{]sample[}]"},
-                        "regions": {
-                            "type": "object",
-                            "properties": {
-                                "sources": {"type": "string", "minLength": 1, "description": "FASTA-matched DUX4/D4Z4 BED4."},
-                                "partners": {"type": "string", "minLength": 1, "description": "FASTA-matched partner BED4 (IGH is optional)."}
-                            },
-                            "additionalProperties": false
-                        },
                         "partner_padding": {"type": "integer", "minimum": 0},
                         "min_reads": {"type": "integer", "minimum": 1},
                         "min_read_length": {"type": "integer", "minimum": 1},
